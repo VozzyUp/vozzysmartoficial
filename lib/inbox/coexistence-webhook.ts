@@ -265,12 +265,14 @@ export async function handleHistorySync(
 
         // Atualizar contadores da conversa
         if (messagesToInsert.length > 0) {
-          await supabase.rpc('increment_total_messages', {
-            conv_id: conversation.id,
-            amount: messagesToInsert.length,
-          }).then(() => {}).catch(() => {
+          try {
+            await supabase.rpc('increment_total_messages', {
+              conv_id: conversation.id,
+              amount: messagesToInsert.length,
+            })
+          } catch {
             // RPC pode nao existir, ignorar
-          })
+          }
         }
       } catch (err) {
         console.error('[Coexistence] Erro ao processar thread do histórico:', err)
