@@ -297,7 +297,7 @@ export const useContactsController = (initialData?: ContactsInitialData) => {
       if (result.updated > 0) parts.push(`${result.updated} atualizados`);
       toast.success(`Importação concluída: ${parts.join(', ') || '0 contatos'}`);
     },
-    onError: () => toast.error('Erro ao importar contatos')
+    onError: (error: Error) => toast.error(error.message || 'Erro ao importar contatos')
   });
 
   // New: Import from file with validation report

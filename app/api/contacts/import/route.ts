@@ -47,8 +47,9 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Failed to import contacts:', error)
+    const message = error instanceof Error ? error.message : 'Falha ao importar contatos'
     return NextResponse.json(
-      { error: 'Falha ao importar contatos' },
+      { error: message },
       { status: 500 }
     )
   }

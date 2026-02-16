@@ -247,15 +247,26 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({
         };
       }).filter(c => c.phone.length > 8);
 
-      const result = await onImport(contactsToImport);
-
-      setImportResult({
-        total: rows.length,
-        inserted: result.inserted,
-        updated: result.updated,
-        errors: rows.length - contactsToImport.length // Linhas com telefone inválido
-      });
-      setStep(3);
+      try {
+        const result = await onImport(contactsToImport);
+        setImportResult({
+          total: rows.length,
+          inserted: result.inserted,
+          updated: result.updated,
+          errors: rows.length - contactsToImport.length
+        });
+        setStep(3);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao importar contatos';
+        setImportResult({
+          total: rows.length,
+          inserted: 0,
+          updated: 0,
+          errors: rows.length,
+          errorMessage: message
+        });
+        setStep(3);
+      }
     };
     reader.readAsText(csvFile);
   };
@@ -658,31 +669,49 @@ interface ImportStepSuccessProps {
   result: ImportResult;
 }
 
-const ImportStepSuccess: React.FC<ImportStepSuccessProps> = ({ result }) => (
-  <div className="text-center py-8">
-    <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500">
-      <CheckCircle2 size={40} />
-    </div>
-    <h3 className="text-2xl font-bold text-white mb-2">Importação Concluída!</h3>
-    <p className="text-gray-400 mb-8">Seus contatos foram processados com sucesso.</p>
+const ImportStepSuccess: React.FC<ImportStepSuccessProps> = ({ result }) => {
+  const hasError = !!result.errorMessage;
 
-    <div className="grid grid-cols-4 gap-3 max-w-lg mx-auto mb-8">
-      <Container variant="surface" padding="md">
-        <p className="text-2xl font-bold text-white">{result.total}</p>
-        <p className="text-xs text-gray-500">Linhas</p>
-      </Container>
-      <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20">
-        <p className="text-2xl font-bold text-emerald-400">{result.inserted}</p>
-        <p className="text-xs text-emerald-500/70">Novos</p>
+  return (
+    <div className="text-center py-8">
+      <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${hasError ? 'bg-red-500/20 text-red-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
+        {hasError ? <AlertCircle size={40} /> : <CheckCircle2 size={40} />}
       </div>
-      <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
-        <p className="text-2xl font-bold text-blue-400">{result.updated}</p>
-        <p className="text-xs text-blue-500/70">Atualizados</p>
-      </div>
-      <Container variant="surface" padding="md">
-        <p className="text-2xl font-bold text-gray-400">{result.errors}</p>
-        <p className="text-xs text-gray-500">Ignorados</p>
-      </Container>
+      <h3 className="text-2xl font-bold text-white mb-2">
+        {hasError ? 'Erro na Importação' : 'Importação Concluída!'}
+      </h3>
+      <p className="text-gray-400 mb-8">
+        {hasError
+          ? 'Não foi possível importar os contatos.'
+          : 'Seus contatos foram processados com sucesso.'}
+      </p>
+
+      {hasError && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-8 max-w-lg mx-auto">
+          <p className="text-red-400 text-sm">{result.errorMessage}</p>
+        </div>
+      )}
+
+      {!hasError && (
+        <div className="grid grid-cols-4 gap-3 max-w-lg mx-auto mb-8">
+          <Container variant="surface" padding="md">
+            <p className="text-2xl font-bold text-white">{result.total}</p>
+            <p className="text-xs text-gray-500">Linhas</p>
+          </Container>
+          <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20">
+            <p className="text-2xl font-bold text-emerald-400">{result.inserted}</p>
+            <p className="text-xs text-emerald-500/70">Novos</p>
+          </div>
+          <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
+            <p className="text-2xl font-bold text-blue-400">{result.updated}</p>
+            <p className="text-xs text-blue-500/70">Atualizados</p>
+          </div>
+          <Container variant="surface" padding="md">
+            <p className="text-2xl font-bold text-gray-400">{result.errors}</p>
+            <p className="text-xs text-gray-500">Ignorados</p>
+          </Container>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};

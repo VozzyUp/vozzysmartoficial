@@ -286,7 +286,16 @@ export const contactService = {
     });
 
     if (!response.ok) {
-      throw new Error('Falha ao importar contatos');
+      const errorData = await response.json().catch(() => null);
+      const details = errorData?.details;
+      let message = errorData?.error || 'Falha ao importar contatos';
+      if (details) {
+        const detailMessages = Object.values(details).flat();
+        if (detailMessages.length > 0) {
+          message = detailMessages.join('. ');
+        }
+      }
+      throw new Error(message);
     }
 
     const { inserted, updated } = await response.json();

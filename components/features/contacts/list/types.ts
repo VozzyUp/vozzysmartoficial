@@ -41,6 +41,7 @@ export interface ImportResult {
   inserted: number;
   updated: number;
   errors: number;
+  errorMessage?: string;
 }
 
 // Form data for creating a new contact
