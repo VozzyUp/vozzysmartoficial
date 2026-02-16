@@ -14,7 +14,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { inboxDb } from './inbox-db'
 import { settingsDb } from '@/lib/supabase-db'
-import type { MessageDirection, DeliveryStatus } from '@/types'
+import type { MessageDirection, DeliveryStatus, InboxMessageType } from '@/types'
 
 // =============================================================================
 // smb_message_echoes
@@ -355,24 +355,18 @@ function extractMessageContent(msg: Record<string, unknown>): string {
   return `[${type}]`
 }
 
-function mapMessageType(
-  waType: string
-): 'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'location' | 'contact' | 'interactive' | 'template' | 'reaction' {
-  const typeMap: Record<string, string> = {
+function mapMessageType(waType: string): InboxMessageType {
+  const typeMap: Record<string, InboxMessageType> = {
     text: 'text',
     image: 'image',
     video: 'video',
     audio: 'audio',
     voice: 'audio',
     document: 'document',
-    sticker: 'sticker',
-    location: 'location',
-    contacts: 'contact',
     interactive: 'interactive',
     template: 'template',
-    reaction: 'reaction',
   }
-  return (typeMap[waType] || 'text') as any
+  return typeMap[waType] || 'text'
 }
 
 function mapHistoryStatus(status?: string): string {
