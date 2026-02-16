@@ -51,7 +51,7 @@ export const getContactsInitialData = cache(async (): Promise<ContactsInitialDat
       .from('custom_field_definitions')
       .select('*')
       .eq('entity_type', 'contact')
-      .order('name')
+      .order('label')
   ])
 
   // Mapear contatos
