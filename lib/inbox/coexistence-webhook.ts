@@ -14,6 +14,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { inboxDb } from './inbox-db'
 import { settingsDb } from '@/lib/supabase-db'
+import type { InboxConversation } from '@/types'
 import type { MessageDirection, DeliveryStatus, InboxMessageType } from '@/types'
 
 // =============================================================================
@@ -296,7 +297,7 @@ export async function handleAccountUpdate(
     console.log(`[Coexistence] Conta desconectada: evento=${event}, phone=${phoneNumber || 'N/A'}`)
 
     try {
-      await settingsDb.saveAll({ isConnected: false })
+      await settingsDb.set('isConnected', 'false')
     } catch (err) {
       console.error('[Coexistence] Erro ao marcar conta como desconectada:', err)
     }
@@ -304,7 +305,7 @@ export async function handleAccountUpdate(
     console.log(`[Coexistence] Conta reconectada: evento=${event}`)
 
     try {
-      await settingsDb.saveAll({ isConnected: true })
+      await settingsDb.set('isConnected', 'true')
     } catch (err) {
       console.error('[Coexistence] Erro ao marcar conta como reconectada:', err)
     }
