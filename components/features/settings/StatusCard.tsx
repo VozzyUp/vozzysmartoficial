@@ -5,6 +5,7 @@ import { Wifi, AlertTriangle, RefreshCw, AlertCircle, Shield, Edit2 } from 'luci
 import { AccountLimits } from '../../../lib/meta-limits';
 import { Container } from '@/components/ui/container';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { EmbeddedSignupButton } from './EmbeddedSignupButton';
 
 export interface StatusCardProps {
   settings: {
@@ -21,6 +22,8 @@ export interface StatusCardProps {
   onDisconnect?: () => void;
   isEditing?: boolean;
   onToggleEdit?: () => void;
+  metaAppId?: string | null;
+  onEmbeddedSignupSuccess?: () => void;
 }
 
 export const StatusCard = forwardRef<HTMLDivElement, StatusCardProps>(function StatusCard(
@@ -34,6 +37,8 @@ export const StatusCard = forwardRef<HTMLDivElement, StatusCardProps>(function S
     onDisconnect,
     isEditing,
     onToggleEdit,
+    metaAppId,
+    onEmbeddedSignupSuccess,
   },
   ref
 ) {
@@ -67,7 +72,17 @@ export const StatusCard = forwardRef<HTMLDivElement, StatusCardProps>(function S
               </div>
             </>
           ) : (
-            <p>Conexão com Meta API perdida. Por favor re-autentique suas credenciais abaixo.</p>
+            <>
+              <p>Conexão com Meta API perdida. Por favor re-autentique suas credenciais abaixo.</p>
+              {metaAppId && onEmbeddedSignupSuccess && (
+                <div className="mt-4">
+                  <EmbeddedSignupButton
+                    appId={metaAppId}
+                    onSuccess={onEmbeddedSignupSuccess}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -134,6 +149,14 @@ export const StatusCard = forwardRef<HTMLDivElement, StatusCardProps>(function S
             <Edit2 size={14} className={`transition-transform duration-500 ${isEditing ? 'rotate-45' : 'group-hover:scale-110'}`} aria-hidden="true" />
             {isEditing ? 'Cancelar' : 'Editar'}
           </button>
+
+          {metaAppId && onEmbeddedSignupSuccess && (
+            <EmbeddedSignupButton
+              appId={metaAppId}
+              onSuccess={onEmbeddedSignupSuccess}
+              compact
+            />
+          )}
 
           <button
             onClick={onDisconnect}

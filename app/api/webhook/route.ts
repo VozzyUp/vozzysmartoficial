@@ -42,6 +42,14 @@ import {
   handleDeliveryStatus,
 } from '@/lib/inbox/inbox-webhook'
 
+// Coexistence: WhatsApp Business App webhooks
+import {
+  handleSmbMessageEchoes,
+  handleSmbAppStateSync,
+  handleHistorySync,
+  handleAccountUpdate,
+} from '@/lib/inbox/coexistence-webhook'
+
 // Get WhatsApp Access Token from centralized helper
 async function getWhatsAppAccessToken(): Promise<string | null> {
   const credentials = await getWhatsAppCredentials()
@@ -1580,6 +1588,49 @@ export async function POST(request: NextRequest) {
                 timestamp: message?.timestamp || null,
               },
             })
+          }
+        }
+
+        // =========================================================
+        // Coexistence: WhatsApp Business App Webhooks
+        // =========================================================
+        const changeField = (change as any).field as string | undefined
+        const changeValue = change.value as Record<string, any> | undefined
+        const changeMeta = changeValue?.metadata as { display_phone_number?: string; phone_number_id?: string } | undefined
+
+        // smb_message_echoes: mensagens enviadas pelo usuario via app WA Business
+        if (changeField === 'smb_message_echoes' && changeValue?.message_echoes) {
+          try {
+            await handleSmbMessageEchoes(changeMeta || {}, changeValue.message_echoes)
+          } catch (e) {
+            console.error('[Webhook] Erro ao processar smb_message_echoes:', e)
+          }
+        }
+
+        // smb_app_state_sync: contatos sincronizados do app WA Business
+        if (changeField === 'smb_app_state_sync' && changeValue?.state_sync) {
+          try {
+            await handleSmbAppStateSync(changeMeta || {}, changeValue.state_sync)
+          } catch (e) {
+            console.error('[Webhook] Erro ao processar smb_app_state_sync:', e)
+          }
+        }
+
+        // history: historico de mensagens do app WA Business
+        if (changeField === 'history' && changeValue?.history) {
+          try {
+            await handleHistorySync(changeMeta || {}, changeValue.history)
+          } catch (e) {
+            console.error('[Webhook] Erro ao processar history:', e)
+          }
+        }
+
+        // account_update: desconexao/reconexao (PARTNER_REMOVED, ACCOUNT_OFFBOARDED, ACCOUNT_RECONNECTED)
+        if (changeField === 'account_update' && changeValue?.event) {
+          try {
+            await handleAccountUpdate(changeValue.event, changeValue.phone_number)
+          } catch (e) {
+            console.error('[Webhook] Erro ao processar account_update:', e)
           }
         }
       }

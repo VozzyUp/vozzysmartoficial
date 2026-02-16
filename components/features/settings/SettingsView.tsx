@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TestContactPanel } from './TestContactPanel';
 import { AutoSuppressionPanel } from './AutoSuppressionPanel';
 import { WorkflowExecutionPanel } from './WorkflowExecutionPanel';
@@ -99,6 +99,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Always start collapsed
   const [isEditing, setIsEditing] = useState(false);
 
+  // Embedded Signup: apos conectar via Facebook, recarrega as credenciais
+  const handleEmbeddedSignupSuccess = useCallback(() => {
+    window.location.reload();
+  }, []);
+
   // Refs para UX: o formulário de credenciais fica bem abaixo do card.
   // Sem scroll automático, parece que o botão "Editar" não funcionou.
   const statusCardRef = useRef<HTMLDivElement | null>(null);
@@ -140,6 +145,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onDisconnect={onDisconnect}
           isEditing={isEditing}
           onToggleEdit={() => setIsEditing((v) => !v)}
+          metaAppId={metaApp?.appId}
+          onEmbeddedSignupSuccess={handleEmbeddedSignupSuccess}
         />
 
         {/* Credentials Form - Only visible if disconnected OR editing */}
