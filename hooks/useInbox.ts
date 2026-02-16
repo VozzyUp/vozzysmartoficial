@@ -36,7 +36,7 @@ export function useInbox(options: UseInboxOptions = {}) {
 
   // State for filters
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ConversationStatus | null>(null)
+  const [statusFilter, setStatusFilter] = useState<ConversationStatus | null>('open')
   const [modeFilter, setModeFilter] = useState<ConversationMode | null>(null)
   const [labelFilter, setLabelFilter] = useState<string | null>(null)
   const [page, setPage] = useState(1)

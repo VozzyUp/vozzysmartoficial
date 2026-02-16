@@ -31,6 +31,7 @@ export const getInboxInitialData = cache(async (): Promise<InboxInitialData> => 
           label:inbox_labels(id, name, color)
         )
       `)
+      .eq('status', 'open')
       .order('last_message_at', { ascending: false })
       .limit(50),
 
