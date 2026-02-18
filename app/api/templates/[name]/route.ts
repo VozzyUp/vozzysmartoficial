@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
 import { ensureHeaderMediaPreviewUrl } from '@/lib/whatsapp/template-media-preview'
@@ -84,7 +85,7 @@ export async function GET(
   } catch (error) {
     console.error('Get Template Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { error: extractErrorMessage(error, 'Erro interno') },
       { status: 500 }
     )
   }
@@ -151,7 +152,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Delete Template Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { error: extractErrorMessage(error, 'Erro interno') },
       { status: 500 }
     )
   }

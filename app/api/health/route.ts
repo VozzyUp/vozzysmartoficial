@@ -3,6 +3,7 @@ import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
 import { settingsDb } from '@/lib/supabase-db'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 // Build Vercel dashboard URL dynamically from environment
 function getVercelDashboardUrl(): string | null {
@@ -101,7 +102,7 @@ export async function GET() {
       result.services.database = {
         status: 'error',
         provider: 'supabase',
-        message: error instanceof Error ? error.message : (error as any)?.message || 'Connection failed',
+        message: extractErrorMessage(error, 'Connection failed'),
       }
       result.overall = 'unhealthy'
     }
@@ -168,7 +169,7 @@ export async function GET() {
   } catch (error) {
     result.services.whatsapp = {
       status: 'error',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: extractErrorMessage(error, 'Unknown error'),
     }
     result.overall = 'degraded'
   }
@@ -269,7 +270,7 @@ export async function GET() {
     } catch (error) {
       result.services.webhook = {
         status: 'error',
-        message: error instanceof Error ? error.message : 'Erro ao verificar webhook',
+        message: extractErrorMessage(error, 'Erro ao verificar webhook'),
       }
     }
   }

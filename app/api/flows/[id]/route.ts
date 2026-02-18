@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -44,7 +45,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
     return NextResponse.json(row)
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: extractErrorMessage(error, 'Internal Server Error') }, { status: 500 })
   }
 }
 
@@ -205,7 +206,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     return NextResponse.json(row)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro ao atualizar flow'
+    const message = extractErrorMessage(error, 'Erro ao atualizar flow')
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
@@ -217,6 +218,6 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: extractErrorMessage(error, 'Internal Server Error') }, { status: 500 })
   }
 }

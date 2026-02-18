@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { supabase } from '@/lib/supabase'
 
 const CreateDraftSchema = z.object({
@@ -118,7 +119,7 @@ export async function GET() {
     return NextResponse.json(list)
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: extractErrorMessage(error, 'Internal Server Error') },
       { status: 500 }
     )
   }
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
       content: deriveContentFromSpec(attempt1.data.components),
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = extractErrorMessage(error, 'Internal Server Error')
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

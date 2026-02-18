@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { listLabels, createNewLabel } from '@/lib/inbox/inbox-service'
 
 const postSchema = z.object({
@@ -18,7 +19,7 @@ export async function GET() {
   } catch (error) {
     console.error('[GET /api/inbox/labels]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { markAsRead } from '@/lib/inbox/inbox-service'
 
 interface RouteParams {
@@ -22,7 +23,7 @@ export async function POST(
   } catch (error) {
     console.error('[POST /api/inbox/conversations/[id]/read]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

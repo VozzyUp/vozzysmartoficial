@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { fetchWithTimeout, safeJson, isAbortError } from '@/lib/server-http'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 // GET /api/debug/meta/template-analytics?name=<template_name>&start=<unix>&end=<unix>&granularity=daily
 // Retorna métricas oficiais da Meta (sent/delivered/read) para um template em um intervalo.
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Debug Meta Template Analytics Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { error: extractErrorMessage(error, 'Erro interno') },
       { status: isAbortError(error) ? 504 : 502 }
     )
   }

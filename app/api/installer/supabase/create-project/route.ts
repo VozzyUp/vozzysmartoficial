@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { extractErrorMessage } from '@/lib/api-validation';
 
 const RequestSchema = z.object({
   accessToken: z.string().min(1, 'Access token é obrigatório'),
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[supabase/create-project] Erro:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { error: extractErrorMessage(error, 'Erro interno') },
       { status: 500 }
     );
   }

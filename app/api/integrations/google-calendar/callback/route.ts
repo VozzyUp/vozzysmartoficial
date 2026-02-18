@@ -7,6 +7,7 @@ import {
   saveCalendarConfig,
   ensureCalendarChannel,
 } from '@/lib/google-calendar'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 const STATE_COOKIE = 'gc_oauth_state'
 const RETURN_COOKIE = 'gc_oauth_return'
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     response.cookies.delete(RETURN_COOKIE)
     return response
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+    const errorMessage = extractErrorMessage(error, 'Erro desconhecido')
     console.error('[google-calendar] callback error:', errorMessage, error)
     return NextResponse.json({
       error: 'Falha ao concluir OAuth',

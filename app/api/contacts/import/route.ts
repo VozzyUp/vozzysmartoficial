@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { contactDb } from '@/lib/supabase-db'
 import { requireSessionOrApiKey } from '@/lib/request-auth'
-import { ImportContactsSchema, validateBody, formatZodErrors } from '@/lib/api-validation'
+import { ImportContactsSchema, validateBody, formatZodErrors, extractErrorMessage } from '@/lib/api-validation'
 import { ContactStatus } from '@/types'
 
 /**
@@ -47,9 +47,8 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Failed to import contacts:', error)
-    const message = error instanceof Error ? error.message : 'Falha ao importar contatos'
     return NextResponse.json(
-      { error: message },
+      { error: extractErrorMessage(error, 'Falha ao importar contatos') },
       { status: 500 }
     )
   }

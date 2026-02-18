@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { templateDb } from '@/lib/supabase-db'
 import { supabase } from '@/lib/supabase'
@@ -243,7 +244,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Meta API Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: extractErrorMessage(error, 'Internal Server Error') },
       { status: 500 }
     )
   }
@@ -289,7 +290,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Meta API Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: extractErrorMessage(error, 'Internal Server Error') },
       { status: 500 }
     )
   }

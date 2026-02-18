@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { listMessages, sendMessage } from '@/lib/inbox/inbox-service'
 
 // Regex para ISO 8601 datetime com precisão variável (Supabase pode retornar 1-6 dígitos)
@@ -54,7 +55,7 @@ export async function GET(
   } catch (error) {
     console.error('[GET /api/inbox/conversations/[id]/messages]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -99,7 +100,7 @@ export async function POST(
   } catch (error) {
     console.error('[POST /api/inbox/conversations/[id]/messages]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

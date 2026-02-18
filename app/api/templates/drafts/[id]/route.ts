@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { supabase } from '@/lib/supabase'
 
 const PatchDraftSchema = z
@@ -61,7 +62,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: extractErrorMessage(error, 'Internal Server Error') },
       { status: 500 }
     )
   }
@@ -176,7 +177,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       spec: row1.components,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = extractErrorMessage(error, 'Internal Server Error')
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
@@ -191,7 +192,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { error: extractErrorMessage(error, 'Internal Server Error') },
       { status: 500 }
     )
   }

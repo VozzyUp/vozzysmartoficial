@@ -302,3 +302,19 @@ export function formatZodErrors(error: z.ZodError): Record<string, string[]> {
 
   return formatted
 }
+
+/**
+ * Extrai uma mensagem legível de qualquer tipo de erro (Error nativo,
+ * PostgrestError do Supabase, ou objeto genérico com campo `message`).
+ *
+ * @param error Valor capturado no `catch`.
+ * @param fallback Mensagem padrão caso nenhuma seja extraída.
+ */
+export function extractErrorMessage(error: unknown, fallback = 'Erro interno do servidor'): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message) || fallback
+  }
+  if (typeof error === 'string') return error
+  return fallback
+}

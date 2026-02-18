@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { settingsDb } from '@/lib/supabase-db'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export const runtime = 'nodejs'
 
@@ -53,7 +54,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error instanceof Error ? error.message : 'Erro ao auditar Mem0',
+      error: extractErrorMessage(error, 'Erro ao auditar Mem0'),
     }, { status: 500 })
   }
 }

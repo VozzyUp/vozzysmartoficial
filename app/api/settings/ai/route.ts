@@ -19,6 +19,7 @@ import {
   prepareAiPromptsUpdate,
   prepareAiRoutesUpdate,
 } from '@/lib/ai/ai-center-config'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 /**
  * Validation result with support for warnings (valid but with issues)
@@ -67,7 +68,7 @@ async function validateApiKey(provider: string, apiKey: string): Promise<Validat
 
         return { valid: true }
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Erro desconhecido'
+        const message = extractErrorMessage(error, 'Erro desconhecido')
 
         console.error('[AI Key Validation] Error:', message)
 
@@ -123,7 +124,7 @@ async function validateMistralApiKey(apiKey: string): Promise<ValidationResult> 
 
         return { valid: true }
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Erro desconhecido'
+        const message = extractErrorMessage(error, 'Erro desconhecido')
         console.error('[Mistral Key Validation] Error:', message)
 
         if (message.includes('ENOTFOUND') || message.includes('network') || message.includes('ECONNREFUSED')) {

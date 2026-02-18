@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { campaignTagDb } from '@/lib/supabase-db'
 
 type Params = { params: Promise<{ id: string }> }
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   } catch (error) {
     console.error('[GET /api/campaigns/tags/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -48,7 +49,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   } catch (error) {
     console.error('[DELETE /api/campaigns/tags/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

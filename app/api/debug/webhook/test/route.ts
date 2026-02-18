@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export const runtime = 'nodejs'
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     return NextResponse.json(
-      { ok: false, error: 'fetch-failed', message: error instanceof Error ? error.message : 'unknown' },
+      { ok: false, error: 'fetch-failed', message: extractErrorMessage(error, 'unknown') },
       { status: 500 }
     )
   }

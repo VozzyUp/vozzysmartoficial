@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { listConversations } from '@/lib/inbox/inbox-service'
 import type { ConversationStatus, ConversationMode } from '@/types'
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[GET /api/inbox/conversations]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

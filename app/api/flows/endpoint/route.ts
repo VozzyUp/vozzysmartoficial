@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { settingsDb } from '@/lib/supabase-db'
 import {
   decryptRequest,
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('[flow-endpoint] ❌ Erro no handler:', error)
       response = createErrorResponse(
-        error instanceof Error ? error.message : 'Erro interno'
+        extractErrorMessage(error, 'Erro interno')
       )
     }
 
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[flow-endpoint] Erro geral:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { error: extractErrorMessage(error, 'Erro interno') },
       { status: 500 }
     )
   }

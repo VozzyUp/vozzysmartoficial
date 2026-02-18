@@ -4,6 +4,7 @@ import {
   extractProjectRefFromSupabaseUrl,
   resolveSupabaseDbUrl,
 } from '@/lib/installer/supabase';
+import { extractErrorMessage } from '@/lib/api-validation';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -117,7 +118,7 @@ async function getSupabaseProjectStatus(params: {
     const data = await res.json();
     return { ok: true, status: data.status || 'UNKNOWN' };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return { ok: false, error: extractErrorMessage(error, 'Unknown error') };
   }
 }
 
@@ -223,7 +224,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('[health-check] Error:', error);
     result.ok = false;
-    result.details = { error: error instanceof Error ? error.message : 'Erro desconhecido' };
+    result.details = { error: extractErrorMessage(error, 'Erro desconhecido') };
   }
 
   return Response.json(result);

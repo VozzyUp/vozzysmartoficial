@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchWithTimeout, isAbortError } from '@/lib/server-http'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export async function POST() {
   // Para fazer redeploy via API da Vercel, precisamos:
@@ -44,7 +45,7 @@ export async function POST() {
   } catch (error) {
     return NextResponse.json({
       success: false,
-      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      message: extractErrorMessage(error, 'Erro desconhecido'),
     }, { status: isAbortError(error) ? 504 : 502 })
   }
 }

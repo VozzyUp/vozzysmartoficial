@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { z } from 'zod'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
         results.failed++
         results.errors.push({
           name,
-          error: error instanceof Error ? error.message : 'Erro de conexão'
+          error: extractErrorMessage(error, 'Erro de conexão')
         })
       }
     }

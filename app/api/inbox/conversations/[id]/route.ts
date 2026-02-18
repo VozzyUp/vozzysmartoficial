@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { getConversation, patchConversation, deleteConversation } from '@/lib/inbox/inbox-service'
 
 const patchSchema = z.object({
@@ -38,7 +39,7 @@ export async function GET(
   } catch (error) {
     console.error('[GET /api/inbox/conversations/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -67,7 +68,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[PATCH /api/inbox/conversations/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -86,7 +87,7 @@ export async function DELETE(
   } catch (error) {
     console.error('[DELETE /api/inbox/conversations/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

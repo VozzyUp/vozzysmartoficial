@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
 import { supabase } from '@/lib/supabase'
@@ -266,7 +267,7 @@ export async function POST(
   } catch (error) {
     console.error('Clone Template Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro interno ao clonar template' },
+      { error: extractErrorMessage(error, 'Erro interno ao clonar template') },
       { status: 500 }
     )
   }

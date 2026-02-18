@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import crypto from 'crypto'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -754,7 +755,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       row: updatedRow,
     })
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Falha ao publicar Flow'
+    const msg = extractErrorMessage(error, 'Falha ao publicar Flow')
     if (error instanceof MetaGraphApiError) {
       try {
         const graphError = (error.data as any)?.error ?? error.data

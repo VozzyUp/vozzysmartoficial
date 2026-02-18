@@ -1023,8 +1023,26 @@ export const contactDb = {
     import: async (contacts: Omit<Contact, 'id' | 'lastActive'>[]): Promise<{ inserted: number; updated: number }> => {
         if (contacts.length === 0) return { inserted: 0, updated: 0 }
 
+        // Deduplicar por telefone: ultimo registro ganha, tags e custom_fields fazem merge
+        const dedupMap = new Map<string, (typeof contacts)[0]>()
+        contacts.forEach(contact => {
+            if (!contact.phone) return
+            const prev = dedupMap.get(contact.phone)
+            if (prev) {
+                const mergedTags = [...new Set([...(prev.tags || []), ...(contact.tags || [])])]
+                const mergedCf = {
+                    ...((prev as any).custom_fields || {}),
+                    ...((contact as any).custom_fields || {}),
+                }
+                dedupMap.set(contact.phone, { ...prev, ...contact, tags: mergedTags, custom_fields: mergedCf } as any)
+            } else {
+                dedupMap.set(contact.phone, contact)
+            }
+        })
+        const dedupContacts = Array.from(dedupMap.values())
+
         const now = new Date().toISOString()
-        const phones = contacts.map(c => c.phone).filter(Boolean)
+        const phones = dedupContacts.map(c => c.phone).filter(Boolean)
 
         // Buscar contatos existentes pelos telefones
         const { data: existingContacts } = await supabase
@@ -1039,7 +1057,7 @@ export const contactDb = {
         const toInsert: any[] = []
         const toUpdate: any[] = []
 
-        contacts.forEach(contact => {
+        dedupContacts.forEach(contact => {
             const existing = existingByPhone.get(contact.phone)
 
             if (existing) {

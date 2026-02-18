@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { getMetaAppCredentials } from '@/lib/meta-app-credentials'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 type GraphApiError = {
   message?: string
@@ -398,7 +399,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : 'Erro inesperado ao testar conexão',
+        error: extractErrorMessage(error, 'Erro inesperado ao testar conexão'),
       },
       { status: 500 }
     )

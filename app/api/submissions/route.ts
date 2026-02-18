@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
       }
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro ao listar submissões'
+    const message = extractErrorMessage(error, 'Erro ao listar submissões')
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

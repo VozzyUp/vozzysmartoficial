@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { supabase } from '@/lib/supabase'
 import { CreateTemplateSchema } from '@/lib/whatsapp/validators/template.schema'
 import { templateService } from '@/lib/whatsapp/template.service'
@@ -123,7 +124,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       )
     }
 
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    const message = extractErrorMessage(error, 'Internal Server Error')
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

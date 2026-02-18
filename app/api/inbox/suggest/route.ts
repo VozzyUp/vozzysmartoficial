@@ -6,6 +6,7 @@
 
 import { streamText, tool } from 'ai'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { createClient } from '@/lib/supabase-server'
 import { createLanguageModel, getProviderFromModel } from '@/lib/ai/provider-factory'
 import { DEFAULT_MODEL_ID } from '@/lib/ai/model'
@@ -176,7 +177,7 @@ export async function POST(req: Request) {
       model = result.model
     } catch (err) {
       return new Response(
-        JSON.stringify({ error: err instanceof Error ? err.message : 'Erro ao criar modelo de IA' }),
+        JSON.stringify({ error: extractErrorMessage(err, 'Erro ao criar modelo de IA') }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -228,7 +229,7 @@ export async function POST(req: Request) {
     console.error('[POST /api/inbox/suggest]', error)
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Internal server error',
+        error: extractErrorMessage(error, 'Internal server error'),
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )

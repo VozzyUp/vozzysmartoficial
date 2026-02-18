@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { extractErrorMessage } from '@/lib/api-validation'
 import { campaignFolderDb } from '@/lib/supabase-db'
 
 const patchSchema = z.object({
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   } catch (error) {
     console.error('[GET /api/campaigns/folders/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -73,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }
@@ -98,7 +99,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   } catch (error) {
     console.error('[DELETE /api/campaigns/folders/[id]]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: extractErrorMessage(error, 'Internal server error') },
       { status: 500 }
     )
   }

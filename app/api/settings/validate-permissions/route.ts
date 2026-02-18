@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { getMetaAppCredentials } from '@/lib/meta-app-credentials'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
+import { extractErrorMessage } from '@/lib/api-validation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -397,7 +398,7 @@ export async function POST(request: NextRequest) {
     console.error('[validate-permissions] Erro:', error)
     return noStoreJson({
       valid: false,
-      error: error instanceof Error ? error.message : 'Erro interno ao validar permissões',
+      error: extractErrorMessage(error, 'Erro interno ao validar permissões'),
       scopes: [],
       missing: [...REQUIRED_SCOPES],
       scopeDetails: REQUIRED_SCOPES.map(scope => ({
