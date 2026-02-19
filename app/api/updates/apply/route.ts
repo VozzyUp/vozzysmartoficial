@@ -80,14 +80,39 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Criar backup
-    const backupDir = path.join(process.cwd(), '.vozsmart-backups')
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true })
-    }
-
+    // Em ambientes serverless (Vercel), usar /tmp ao invés de .vozsmart-backups
+    // pois o sistema de arquivos é somente leitura exceto em /tmp
+    const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined
+    
+    let backupPath: string
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -5)
-    const backupPath = path.join(backupDir, `backup-core-${timestamp}`)
-    fs.mkdirSync(backupPath, { recursive: true })
+    
+    if (isServerless) {
+      // Em serverless, usar /tmp diretamente
+      backupPath = path.join('/tmp', `vozsmart-backup-${timestamp}`)
+    } else {
+      // Em ambiente local, usar .vozsmart-backups
+      const backupDir = path.join(process.cwd(), '.vozsmart-backups')
+      try {
+        if (!fs.existsSync(backupDir)) {
+          fs.mkdirSync(backupDir, { recursive: true })
+        }
+        backupPath = path.join(backupDir, `backup-core-${timestamp}`)
+      } catch (error) {
+        // Se falhar, usar /tmp como fallback
+        console.warn('[Updates Apply] Falha ao criar .vozsmart-backups, usando /tmp:', error)
+        backupPath = path.join('/tmp', `vozsmart-backup-${timestamp}`)
+      }
+    }
+    
+    // Criar diretório de backup
+    try {
+      if (!fs.existsSync(backupPath)) {
+        fs.mkdirSync(backupPath, { recursive: true })
+      }
+    } catch (error) {
+      throw new Error(`Falha ao criar diretório de backup: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    }
 
     const updatedFiles: string[] = []
     const failedFiles: Array<{ file: string; error: string }> = []
