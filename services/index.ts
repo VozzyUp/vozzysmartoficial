@@ -10,6 +10,7 @@ export { campaignService } from './campaignService';
 export { contactService } from './contactService';
 export { templateService } from './templateService';
 export { leadFormService } from './leadFormService';
+export { prospectingService } from './prospectingService';
 // ============================================================================
 // SETTINGS SERVICE (usa credenciais salvas no Supabase/env)
 // ============================================================================

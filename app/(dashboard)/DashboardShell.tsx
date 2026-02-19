@@ -15,6 +15,7 @@ import {
     MessageCircle,
     Sparkles,
     Workflow,
+    Search,
 } from 'lucide-react'
 import React from 'react'
 import { HealthStatus } from '@/lib/health-check'
@@ -341,6 +342,7 @@ export function DashboardShell({
         { path: '/workflows', label: 'Workflow', icon: Workflow, badge: 'beta', disabled: true, hidden: !isDevMode },
         { path: '/conversations', label: 'Conversas', icon: MessageCircle, hidden: true },
         { path: '/templates', label: 'Templates', icon: FileText },
+        { path: '/prospecting', label: 'Prospecção', icon: Search },
         { path: '/contacts', label: 'Contatos', icon: Users },
         { path: '/settings/ai', label: 'IA', icon: Sparkles },
         { path: '/settings', label: 'Configurações', icon: Settings },

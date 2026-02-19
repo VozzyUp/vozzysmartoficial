@@ -318,3 +318,52 @@ export function extractErrorMessage(error: unknown, fallback = 'Erro interno do 
   if (typeof error === 'string') return error
   return fallback
 }
+
+// ============================================================================
+// Prospecting Schemas
+// ============================================================================
+
+export const ProspectingConfigSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório').max(100, 'Nome muito longo'),
+  nicho: z.string().min(1, 'Nicho é obrigatório').max(200, 'Nicho muito longo'),
+  localizacoes: z.array(z.string().min(1, 'Localização não pode ser vazia')).min(1, 'Pelo menos uma localização é necessária'),
+  variacoes: z.array(z.string().min(1, 'Variação não pode ser vazia')).optional().default([]),
+  paginas_por_localizacao: z.number().int().min(1).max(10).optional().default(3),
+  hasdata_api_key: z.string().min(1, 'API Key do HasData é obrigatória'),
+})
+
+export const UpdateProspectingConfigSchema = ProspectingConfigSchema.partial()
+
+export const ProspectingSearchSchema = z.object({
+  configId: z.string().uuid('ID de configuração inválido').optional(),
+  // Configuração inline (se não usar configId)
+  nicho: z.string().min(1).max(200).optional(),
+  localizacoes: z.array(z.string().min(1)).min(1).optional(),
+  variacoes: z.array(z.string().min(1)).optional(),
+  paginas_por_localizacao: z.number().int().min(1).max(10).optional().default(3),
+  hasdata_api_key: z.string().min(1).optional(),
+  // Parâmetros de busca específica
+  localizacao: z.string().min(1).optional(),
+  variacao: z.string().optional(),
+  pagina: z.number().int().min(0).optional().default(0),
+}).refine(
+  (data) => data.configId || (data.nicho && data.localizacoes && data.hasdata_api_key),
+  {
+    message: 'Forneça configId ou configuração completa (nicho, localizacoes, hasdata_api_key)',
+  }
+)
+
+export const SaveProspectingContactsSchema = z.object({
+  contacts: z.array(
+    z.object({
+      empresa: z.string().min(1, 'Nome da empresa é obrigatório').max(200),
+      telefone: z.string().min(1, 'Telefone é obrigatório'),
+      endereco: z.string().max(500).optional().default(''),
+      website: z.string().max(500).optional().default(''),
+      categoria: z.string().max(200).optional().default(''),
+      avaliacao: z.number().min(0).max(5).optional().nullable(),
+      total_avaliacoes: z.number().int().min(0).optional().nullable(),
+      email: z.string().email().optional().nullable(),
+    })
+  ).min(1, 'Selecione pelo menos um contato para salvar'),
+})
