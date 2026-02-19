@@ -50,13 +50,17 @@ export async function GET(request: NextRequest) {
     const currentVersion = config.coreVersion
 
     // 2. Buscar version.json do GitHub template
-    const versionUrl = `https://raw.githubusercontent.com/${config.templateRepo}/${config.templateBranch}/version.json`
+    // Adiciona timestamp para evitar cache
+    const timestamp = Date.now()
+    const versionUrl = `https://raw.githubusercontent.com/${config.templateRepo}/${config.templateBranch}/version.json?t=${timestamp}`
 
     const response = await fetch(versionUrl, {
       headers: {
         Accept: 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
       },
-      next: { revalidate: 0 }, // Sempre buscar versão mais recente
+      cache: 'no-store', // Força não usar cache
     })
 
     if (!response.ok) {
@@ -81,8 +85,15 @@ export async function GET(request: NextRequest) {
     const latestData: VersionInfo = await response.json()
     const latestVersion = latestData.version
 
+    // Debug: log dos arquivos recebidos do GitHub
+    console.log('[Updates Check] Arquivos recebidos do GitHub:', latestData.filesToUpdate)
+    console.log('[Updates Check] Arquivos protegidos do config:', config.protectedFiles)
+
     // 3. Validar que filesToUpdate não contém arquivos protegidos
-    const validation = validateFilesToUpdate(latestData.filesToUpdate, config.protectedFiles)
+    const validation = validateFilesToUpdate(latestData.filesToUpdate || [], config.protectedFiles)
+
+    // Debug: log do resultado da validação
+    console.log('[Updates Check] Validação:', { valid: validation.valid, blocked: validation.blocked })
 
     if (!validation.valid) {
       return NextResponse.json<CheckUpdateResponse>(

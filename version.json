@@ -1,9 +1,38 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "changelog": [
-    "Versão inicial do sistema de atualização automática"
+    "Novo: Sistema de atualização automática do template",
+    "Novo: Painel de atualizações na tela de configurações",
+    "Novo: API para verificar atualizações disponíveis",
+    "Novo: API para aplicar atualizações com backup automático",
+    "Novo: Proteção de arquivos sensíveis (credenciais, configurações)",
+    "Novo: Rollback automático em caso de falha na atualização",
+    "Melhoria: Validação de path traversal e segurança",
+    "Melhoria: Feedback detalhado de linhas ignoradas na importação de contatos",
+    "Correção: Campos personalizados desaparecendo após refresh",
+    "Correção: Filtro de inbox mostrando apenas conversas abertas"
   ],
-  "filesToUpdate": [],
+  "filesToUpdate": [
+    "version.json",
+    "types/vozsmart-config.ts",
+    "types/version.ts",
+    "lib/update-protection.ts",
+    "app/api/updates/check/route.ts",
+    "app/api/updates/apply/route.ts",
+    "components/features/settings/UpdatePanel.tsx",
+    "components/features/settings/SettingsView.tsx",
+    "components/features/contacts/list/ContactImportModal.tsx",
+    "components/features/contacts/list/types.ts",
+    "components/features/contacts/list/utils.ts",
+    "app/(dashboard)/contacts/actions.ts",
+    "app/(dashboard)/inbox/actions.ts",
+    "hooks/useContacts.ts",
+    "hooks/useInbox.ts",
+    "lib/api-validation.ts",
+    "lib/supabase-db.ts",
+    "services/contactService.ts",
+    "app/api/contacts/import/route.ts"
+  ],
   "requiresMigration": false,
   "breakingChanges": []
 }
