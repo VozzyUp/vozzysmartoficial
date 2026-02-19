@@ -9,7 +9,7 @@ import {
   getGitHubRepoFromVercel,
   getGitHubToken,
   updateFilesViaGitHub,
-  updateConfigFile,
+  getFileFromGitHub,
   type GitHubFileCommit,
 } from '@/lib/github-update'
 import { triggerDeployment } from '@/lib/vercel-api'
@@ -145,22 +145,51 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 8. Atualizar arquivos via GitHub API
-    const commitResults = await updateFilesViaGitHub({
+    // 8. Obter vozsmart.config.json atual para incluir na atualização
+    let configContent = ''
+    try {
+      const currentConfig = await getFileFromGitHub({
+        token: githubToken,
+        owner: repoInfo.owner,
+        repo: repoInfo.repo,
+        path: 'vozsmart.config.json',
+        branch: repoInfo.branch,
+      })
+      
+      if (currentConfig) {
+        const config = JSON.parse(currentConfig.content)
+        const updatedConfig = {
+          ...config,
+          coreVersion: latestVersion,
+          lastUpdate: new Date().toISOString(),
+        }
+        configContent = JSON.stringify(updatedConfig, null, 2)
+      }
+    } catch {
+      // Se não conseguir ler, usar config local como fallback
+      const updatedConfig: VozSmartConfig = {
+        ...config,
+        coreVersion: latestVersion,
+        lastUpdate: new Date().toISOString(),
+      }
+      configContent = JSON.stringify(updatedConfig, null, 2)
+    }
+
+    // Adicionar vozsmart.config.json à lista de arquivos para commit único
+    filesToCommit.push({
+      path: 'vozsmart.config.json',
+      content: configContent,
+      message: `chore: atualizar coreVersion para ${latestVersion}`,
+    })
+
+    // 9. Atualizar todos os arquivos em um único commit
+    const commitResult = await updateFilesViaGitHub({
       token: githubToken,
       owner: repoInfo.owner,
       repo: repoInfo.repo,
       branch: repoInfo.branch,
       files: filesToCommit,
-    })
-
-    // 9. Atualizar vozsmart.config.json no GitHub
-    const configCommit = await updateConfigFile({
-      token: githubToken,
-      owner: repoInfo.owner,
-      repo: repoInfo.repo,
-      branch: repoInfo.branch,
-      coreVersion: latestVersion,
+      version: latestVersion,
     })
 
     // 10. Trigger redeploy no Vercel
@@ -204,12 +233,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json<ApplyUpdateResponse>({
       success: true,
       version: latestVersion,
-      filesUpdated: commitResults.length,
+      filesUpdated: commitResult.filesUpdated,
       commits: [
-        ...commitResults,
         {
-          path: 'vozsmart.config.json',
-          commit: configCommit.commit,
+          path: `${commitResult.filesUpdated} arquivo(s)`,
+          commit: commitResult.commit,
         },
       ],
       redeployTriggered,

@@ -182,8 +182,175 @@ export async function createFileCommit(params: {
 }
 
 /**
- * Atualiza múltiplos arquivos no GitHub
- * Retorna array de commits criados
+ * Cria um único commit com múltiplos arquivos usando Git Database API
+ * Isso evita múltiplos deployments no Vercel
+ */
+async function createSingleCommitWithMultipleFiles(params: {
+  token: string
+  owner: string
+  repo: string
+  branch: string
+  files: Array<{ path: string; content: string }>
+  message: string
+}): Promise<{ sha: string; url: string }> {
+  const { token, owner, repo, branch, files, message } = params
+  const apiBase = `${GITHUB_API_BASE}/repos/${owner}/${repo}/git`
+
+  try {
+    // 1. Obter SHA do commit atual da branch
+    const refResponse = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/git/ref/heads/${branch}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    })
+
+    if (!refResponse.ok) {
+      throw new Error(`Falha ao obter referência da branch: ${refResponse.status}`)
+    }
+
+    const refData = await refResponse.json()
+    const parentSha = refData.object.sha
+
+    // 2. Obter tree atual
+    const treeResponse = await fetch(`${apiBase}/trees/${parentSha}?recursive=1`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    })
+
+    if (!treeResponse.ok) {
+      throw new Error(`Falha ao obter tree atual: ${treeResponse.status}`)
+    }
+
+    const treeData = await treeResponse.json()
+    const baseTreeSha = treeData.sha
+
+    // 3. Criar blobs para cada arquivo
+    const blobShas: Array<{ path: string; sha: string; mode: string }> = []
+
+    for (const file of files) {
+      const contentBase64 = Buffer.from(file.content, 'utf8').toString('base64')
+
+      const blobResponse = await fetch(`${apiBase}/blobs`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: contentBase64,
+          encoding: 'base64',
+        }),
+      })
+
+      if (!blobResponse.ok) {
+        throw new Error(`Falha ao criar blob para ${file.path}: ${blobResponse.status}`)
+      }
+
+      const blobData = await blobResponse.json()
+      blobShas.push({
+        path: file.path,
+        sha: blobData.sha,
+        mode: '100644', // Arquivo regular
+      })
+    }
+
+    // 4. Criar nova tree com todos os arquivos
+    // Usar base_tree para manter estrutura existente e apenas atualizar arquivos modificados
+    const treeEntries: Array<{
+      path: string
+      mode: string
+      type: string
+      sha: string
+    }> = []
+
+    // Adicionar apenas os arquivos que estamos atualizando
+    // O GitHub API automaticamente mantém os outros arquivos quando usamos base_tree
+    for (const blob of blobShas) {
+      treeEntries.push({
+        path: blob.path,
+        mode: blob.mode,
+        type: 'blob',
+        sha: blob.sha,
+      })
+    }
+
+    const createTreeResponse = await fetch(`${apiBase}/trees`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeEntries,
+      }),
+    })
+
+    if (!createTreeResponse.ok) {
+      const errorData = await createTreeResponse.json().catch(() => ({}))
+      throw new Error(`Falha ao criar tree: ${createTreeResponse.status} - ${JSON.stringify(errorData)}`)
+    }
+
+    const newTreeData = await createTreeResponse.json()
+    const newTreeSha = newTreeData.sha
+
+    // 5. Criar commit
+    const commitResponse = await fetch(`${apiBase}/commits`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        tree: newTreeSha,
+        parents: [parentSha],
+      }),
+    })
+
+    if (!commitResponse.ok) {
+      const errorData = await commitResponse.json().catch(() => ({}))
+      throw new Error(`Falha ao criar commit: ${commitResponse.status} - ${JSON.stringify(errorData)}`)
+    }
+
+    const commitData = await commitResponse.json()
+
+    // 6. Atualizar referência da branch
+    const updateRefResponse = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sha: commitData.sha,
+      }),
+    })
+
+    if (!updateRefResponse.ok) {
+      throw new Error(`Falha ao atualizar referência: ${updateRefResponse.status}`)
+    }
+
+    return {
+      sha: commitData.sha,
+      url: commitData.html_url,
+    }
+  } catch (error) {
+    console.error('[createSingleCommitWithMultipleFiles] Erro:', error)
+    throw error
+  }
+}
+
+/**
+ * Atualiza múltiplos arquivos no GitHub em um único commit
+ * Retorna informações do commit único criado
  */
 export async function updateFilesViaGitHub(params: {
   token: string
@@ -191,49 +358,40 @@ export async function updateFilesViaGitHub(params: {
   repo: string
   branch?: string
   files: GitHubFileCommit[]
-}): Promise<Array<{ path: string; commit: { sha: string; url: string } }>> {
-  const results: Array<{ path: string; commit: { sha: string; url: string } }> = []
+  version?: string
+}): Promise<{ commit: { sha: string; url: string }; filesUpdated: number }> {
   const branch = params.branch || 'main'
+  const version = params.version || ''
 
-  for (const file of params.files) {
-    try {
-      // Tentar obter SHA do arquivo existente (se existir)
-      let sha: string | undefined
-      try {
-        const existingFile = await getFileFromGitHub({
-          token: params.token,
-          owner: params.owner,
-          repo: params.repo,
-          path: file.path,
-          branch,
-        })
-        sha = existingFile?.sha
-      } catch {
-        // Arquivo não existe, será criado
-      }
+  // Usar mensagem única para todos os arquivos
+  const commitMessage = version
+    ? `chore: atualizar arquivos para versão ${version}`
+    : `chore: atualizar ${params.files.length} arquivo(s)`
 
-      const commitResult = await createFileCommit({
-        token: params.token,
-        owner: params.owner,
-        repo: params.repo,
-        path: file.path,
-        content: file.content,
-        message: file.message,
-        branch,
-        sha,
-      })
+  // Preparar arquivos para commit único
+  const filesToCommit = params.files.map((f) => ({
+    path: f.path,
+    content: f.content,
+  }))
 
-      results.push({
-        path: file.path,
-        commit: commitResult.commit,
-      })
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido'
-      throw new Error(`Falha ao atualizar ${file.path}: ${errorMsg}`)
+  try {
+    const commitResult = await createSingleCommitWithMultipleFiles({
+      token: params.token,
+      owner: params.owner,
+      repo: params.repo,
+      branch,
+      files: filesToCommit,
+      message: commitMessage,
+    })
+
+    return {
+      commit: commitResult,
+      filesUpdated: params.files.length,
     }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido'
+    throw new Error(`Falha ao atualizar arquivos: ${errorMsg}`)
   }
-
-  return results
 }
 
 /**
