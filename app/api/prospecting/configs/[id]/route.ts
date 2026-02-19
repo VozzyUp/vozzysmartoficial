@@ -6,22 +6,19 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-interface RouteParams {
-  params: {
-    id: string
-  }
-}
-
 /**
  * PUT /api/prospecting/configs/[id]
  * Atualiza configuração de prospecção
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const auth = await requireSessionOrApiKey(request)
     if (auth) return auth
 
-    const { id } = params
+    const { id } = await params
     if (!id) {
       return NextResponse.json(
         { error: 'ID é obrigatório' },
@@ -89,12 +86,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/prospecting/configs/[id]
  * Deleta configuração de prospecção
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const auth = await requireSessionOrApiKey(request)
     if (auth) return auth
 
-    const { id } = params
+    const { id } = await params
     if (!id) {
       return NextResponse.json(
         { error: 'ID é obrigatório' },
