@@ -112,7 +112,11 @@ export function joinPhone(country: string, number: string): string {
 
 export function ensureBaseSpec(input: unknown): Spec {
   const s = input && typeof input === 'object' ? { ...(input as any) } : {}
-  if (!s.name) s.name = 'novo_template'
+  // Só define nome padrão se for null ou undefined, não se for string vazia
+  // Isso permite que o usuário apague completamente o campo temporariamente
+  if (s.name === null || s.name === undefined) {
+    s.name = 'novo_template'
+  }
   if (!s.language) s.language = 'pt_BR'
   if (!s.category) s.category = 'MARKETING'
   if (!s.parameter_format) s.parameter_format = 'positional'
