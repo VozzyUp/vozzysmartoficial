@@ -205,6 +205,50 @@ export async function getProject(
 }
 
 /**
+ * Get GitHub repository information from Vercel project
+ */
+export async function getProjectGitRepo(
+  token: string,
+  projectId: string,
+  teamId?: string
+): Promise<VercelApiResult<{ owner: string; repo: string; branch: string }>> {
+  try {
+    const projectResult = await getProject(token, projectId, teamId)
+    
+    if (!projectResult.success || !projectResult.data) {
+      return { success: false, error: 'Projeto não encontrado' }
+    }
+
+    const project = projectResult.data as any
+    const gitRepo = project.link?.repo || project.gitRepository?.repo
+    
+    if (!gitRepo || typeof gitRepo !== 'string') {
+      return { success: false, error: 'Projeto não está conectado ao GitHub' }
+    }
+
+    // Formato: "owner/repo"
+    const [owner, repo] = gitRepo.split('/')
+    if (!owner || !repo) {
+      return { success: false, error: 'Formato de repositório GitHub inválido' }
+    }
+
+    const branch = project.link?.branch || project.gitRepository?.branch || 'main'
+
+    return {
+      success: true,
+      data: {
+        owner,
+        repo,
+        branch,
+      },
+    }
+  } catch (error) {
+    console.error('Vercel API error:', error)
+    return { success: false, error: 'Erro ao buscar informações do GitHub' }
+  }
+}
+
+/**
  * Get all environment variables for a project
  */
 export async function getEnvVars(

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
-import { RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ExternalLink } from 'lucide-react'
+import React, { useState, useCallback, useEffect } from 'react'
+import { RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ExternalLink, Github, Link2 } from 'lucide-react'
 import { Container } from '@/components/ui/container'
 import { toast } from 'sonner'
 
@@ -13,6 +13,19 @@ interface UpdateInfo {
   filesToUpdate: string[]
   requiresMigration: boolean
   breakingChanges: string[]
+  isServerless?: boolean
+  serverlessWarning?: string
+  error?: string
+}
+
+interface GitHubStatus {
+  connected: boolean
+  repo?: {
+    owner: string
+    repo: string
+    branch: string
+  }
+  tokenValid?: boolean
   error?: string
 }
 
@@ -20,14 +33,36 @@ interface ApplyResult {
   success: boolean
   version?: string
   filesUpdated?: number
-  backupPath?: string
+  commits?: Array<{ path: string; commit: { sha: string; url: string } }>
+  redeployTriggered?: boolean
+  needsAuth?: boolean
   error?: string
 }
 
 export const UpdatePanel: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [githubStatus, setGitHubStatus] = useState<GitHubStatus | null>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
+  const [isCheckingGitHub, setIsCheckingGitHub] = useState(false)
+
+  // Verificar status GitHub ao carregar componente
+  useEffect(() => {
+    checkGitHubStatus()
+  }, [])
+
+  const checkGitHubStatus = useCallback(async () => {
+    setIsCheckingGitHub(true)
+    try {
+      const response = await fetch('/api/updates/github/status')
+      const data: GitHubStatus = await response.json()
+      setGitHubStatus(data)
+    } catch (error) {
+      console.error('Erro ao verificar status GitHub:', error)
+    } finally {
+      setIsCheckingGitHub(false)
+    }
+  }, [])
 
   const checkForUpdates = useCallback(async () => {
     setIsChecking(true)
@@ -81,23 +116,42 @@ export const UpdatePanel: React.FC = () => {
       const result: ApplyResult = await response.json()
 
       if (!response.ok || !result.success) {
-        toast.error(result.error || 'Erro ao aplicar atualização')
+        if (result.needsAuth) {
+          toast.error('Token GitHub não configurado. Configure GITHUB_TOKEN no Vercel.')
+          // Recarregar status GitHub
+          checkGitHubStatus()
+        } else {
+          toast.error(result.error || 'Erro ao aplicar atualização')
+        }
         return
       }
 
-      toast.success(`Atualização aplicada com sucesso! Versão ${result.version}`)
+      // Mostrar sucesso com detalhes
+      const message = `Atualização aplicada! Versão ${result.version}`
+      const details = []
+      if (result.filesUpdated) {
+        details.push(`${result.filesUpdated} arquivo(s) atualizado(s)`)
+      }
+      if (result.redeployTriggered) {
+        details.push('Redeploy Vercel iniciado')
+      }
       
-      // Recarregar página após 2 segundos para aplicar mudanças
+      toast.success([message, ...details].join('. '))
+      
+      // Atualizar status GitHub
+      checkGitHubStatus()
+      
+      // Recarregar página após 3 segundos para aplicar mudanças
       setTimeout(() => {
         window.location.reload()
-      }, 2000)
+      }, 3000)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao aplicar atualização'
       toast.error(message)
     } finally {
       setIsApplying(false)
     }
-  }, [updateInfo])
+  }, [updateInfo, checkGitHubStatus])
 
   return (
     <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
@@ -123,6 +177,61 @@ export const UpdatePanel: React.FC = () => {
           Verificar Atualizações
         </button>
       </div>
+
+      {/* Status GitHub */}
+      {githubStatus && (
+        <div className="mt-4 mb-4">
+          {githubStatus.connected && githubStatus.tokenValid ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-emerald-400">
+                    GitHub Conectado
+                  </p>
+                  {githubStatus.repo && (
+                    <p className="text-xs text-emerald-300/80 mt-0.5">
+                      {githubStatus.repo.owner}/{githubStatus.repo.repo} ({githubStatus.repo.branch})
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-yellow-400">
+                    GitHub Não Configurado
+                  </p>
+                  <p className="text-xs text-yellow-300/80 mt-1">
+                    {githubStatus.error || 'Configure GITHUB_TOKEN nas variáveis de ambiente do Vercel para usar atualizações automáticas.'}
+                  </p>
+                  {githubStatus.repo && (
+                    <p className="text-xs text-yellow-300/60 mt-1">
+                      Repositório: {githubStatus.repo.owner}/{githubStatus.repo.repo}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={checkGitHubStatus}
+                  disabled={isCheckingGitHub}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                  title="Verificar novamente"
+                >
+                  {isCheckingGitHub ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={12} />
+                  )}
+                  Verificar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {updateInfo && (
         <div className="mt-4 space-y-4">
@@ -167,8 +276,9 @@ export const UpdatePanel: React.FC = () => {
                 </div>
                 <button
                   onClick={applyUpdate}
-                  disabled={isApplying}
+                  disabled={isApplying || !githubStatus?.connected || !githubStatus?.tokenValid}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={!githubStatus?.connected || !githubStatus?.tokenValid ? 'Configure GitHub primeiro' : undefined}
                 >
                   {isApplying ? (
                     <>
