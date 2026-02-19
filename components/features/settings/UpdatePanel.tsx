@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
-import { RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ExternalLink, Github, Link2 } from 'lucide-react'
+import { RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ExternalLink, Github, Link2, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { Container } from '@/components/ui/container'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
 interface UpdateInfo {
@@ -45,6 +47,9 @@ export const UpdatePanel: React.FC = () => {
   const [isChecking, setIsChecking] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
   const [isCheckingGitHub, setIsCheckingGitHub] = useState(false)
+  const [showTokenForm, setShowTokenForm] = useState(false)
+  const [githubToken, setGithubToken] = useState('')
+  const [isSavingToken, setIsSavingToken] = useState(false)
 
   // Verificar status GitHub ao carregar componente
   useEffect(() => {
@@ -153,6 +158,49 @@ export const UpdatePanel: React.FC = () => {
     }
   }, [updateInfo, checkGitHubStatus])
 
+  const saveGitHubToken = useCallback(async () => {
+    if (!githubToken.trim()) {
+      toast.error('Digite um token GitHub')
+      return
+    }
+
+    if (!githubToken.trim().startsWith('ghp_')) {
+      toast.error("Token deve começar com 'ghp_'")
+      return
+    }
+
+    setIsSavingToken(true)
+
+    try {
+      const response = await fetch('/api/updates/github/save-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: githubToken.trim() }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        toast.error(result.error || 'Erro ao salvar token')
+        return
+      }
+
+      toast.success(result.message || 'Token salvo com sucesso!')
+      setGithubToken('')
+      setShowTokenForm(false)
+      
+      // Aguardar alguns segundos e verificar status novamente
+      setTimeout(() => {
+        checkGitHubStatus()
+      }, 2000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao salvar token'
+      toast.error(message)
+    } finally {
+      setIsSavingToken(false)
+    }
+  }, [githubToken, checkGitHubStatus])
+
   return (
     <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
       <div className="flex items-start justify-between mb-4">
@@ -198,36 +246,121 @@ export const UpdatePanel: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-yellow-400">
-                    GitHub Não Configurado
-                  </p>
-                  <p className="text-xs text-yellow-300/80 mt-1">
-                    {githubStatus.error || 'Configure GITHUB_TOKEN nas variáveis de ambiente do Vercel para usar atualizações automáticas.'}
-                  </p>
-                  {githubStatus.repo && (
-                    <p className="text-xs text-yellow-300/60 mt-1">
-                      Repositório: {githubStatus.repo.owner}/{githubStatus.repo.repo}
+            <div className="space-y-3">
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-yellow-400">
+                      GitHub Não Configurado
                     </p>
-                  )}
+                    <p className="text-xs text-yellow-300/80 mt-1">
+                      {githubStatus.error || 'Configure GITHUB_TOKEN nas variáveis de ambiente do Vercel para usar atualizações automáticas.'}
+                    </p>
+                    {githubStatus.repo && (
+                      <p className="text-xs text-yellow-300/60 mt-1">
+                        Repositório: {githubStatus.repo.owner}/{githubStatus.repo.repo}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowTokenForm(!showTokenForm)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs font-medium transition-colors"
+                    >
+                      {showTokenForm ? (
+                        <>
+                          <ChevronUp size={12} />
+                          Ocultar
+                        </>
+                      ) : (
+                        <>
+                          <Github size={12} />
+                          Configurar Token
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={checkGitHubStatus}
+                      disabled={isCheckingGitHub}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-yellow-600/50 hover:bg-yellow-500/50 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                      title="Verificar novamente"
+                    >
+                      {isCheckingGitHub ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <RefreshCw size={12} />
+                      )}
+                      Verificar
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={checkGitHubStatus}
-                  disabled={isCheckingGitHub}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
-                  title="Verificar novamente"
-                >
-                  {isCheckingGitHub ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={12} />
-                  )}
-                  Verificar
-                </button>
               </div>
+
+              {/* Formulário de Token */}
+              {showTokenForm && (
+                <div className="bg-[var(--ds-bg-surface)] border border-[var(--ds-border-default)] rounded-lg p-4 space-y-4">
+                  <div className="flex items-start gap-2">
+                    <Info size={16} className="text-[var(--ds-text-muted)] mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-[var(--ds-text-primary)] mb-2">
+                        Usar Token Manual
+                      </h4>
+                      <p className="text-xs text-[var(--ds-text-secondary)] mb-3">
+                        Se preferir, você pode criar um token de acesso pessoal:
+                      </p>
+                      <ol className="text-xs text-[var(--ds-text-secondary)] space-y-1.5 list-decimal list-inside mb-4">
+                        <li>Acesse o link abaixo e faça login no GitHub</li>
+                        <li>Clique em &quot;Generate token&quot; no final da página</li>
+                        <li>Copie o token gerado (começa com ghp_)</li>
+                        <li>Cole o token no campo abaixo</li>
+                      </ol>
+                      <a
+                        href="https://github.com/settings/tokens/new?scopes=repo"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        Criar token no GitHub
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="github-token-input" className="text-xs font-medium text-[var(--ds-text-primary)]">
+                      Token de Acesso Pessoal
+                    </label>
+                    <Input
+                      id="github-token-input"
+                      type="text"
+                      placeholder="ghp_xxxxxxxxxxxx"
+                      value={githubToken}
+                      onChange={(e) => setGithubToken(e.target.value)}
+                      className="font-mono text-sm"
+                      disabled={isSavingToken}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={saveGitHubToken}
+                    disabled={isSavingToken || !githubToken.trim()}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white"
+                  >
+                    {isSavingToken ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin mr-2" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={16} className="mr-2" />
+                        Validar e Salvar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
