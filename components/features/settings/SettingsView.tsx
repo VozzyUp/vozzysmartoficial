@@ -10,6 +10,7 @@ import { FlowEndpointPanel } from './FlowEndpointPanel';
 import { CredentialsForm } from './CredentialsForm';
 import { UpstashConfigPanel } from './UpstashConfigPanel';
 import { ApiDocsPanel } from './ApiDocsPanel';
+import { UpdatePanel } from './UpdatePanel';
 import { useDevMode } from '@/components/providers/DevModeProvider';
 import type { SettingsViewProps } from './types';
 
@@ -148,6 +149,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           metaAppId={metaApp?.appId}
           onEmbeddedSignupSuccess={handleEmbeddedSignupSuccess}
         />
+
+        {/* Update Panel - Sistema de atualizações */}
+        <UpdatePanel />
 
         {/* Credentials Form - Only visible if disconnected OR editing */}
         {(!settings.isConnected || isEditing) && (

@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "changelog": [
+    "Versão inicial do sistema de atualização automática"
+  ],
+  "filesToUpdate": [],
+  "requiresMigration": false,
+  "breakingChanges": []
+}
