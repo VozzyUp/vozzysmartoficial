@@ -23,7 +23,8 @@ import {
   ColumnMapping,
   ImportResult
 } from './types';
-import { parseCSV, formatPhoneNumber } from './utils';
+import { parseCSV, isValidEmail } from './utils';
+import { normalizePhoneNumber } from '@/lib/phone-formatter';
 import { ContactFieldMappingSheet } from './ContactFieldMappingSheet';
 import { Container } from '@/components/ui/container';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -112,7 +113,7 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({
     let duplicatesInDatabase = 0;
 
     allRows.forEach(row => {
-      const phone = formatPhoneNumber(row[phoneIdx] || '');
+      const phone = normalizePhoneNumber(row[phoneIdx] || '', 'BR');
 
       if (phone.length <= 8) {
         invalidPhones++;
@@ -211,8 +212,32 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({
         }
       });
 
+      // Validar e-mails antes da importação (só se coluna mapeada)
+      const invalidEmailLines: number[] = [];
+      if (emailIdx >= 0) {
+        rows.forEach((row, i) => {
+          const raw = row[emailIdx]?.trim();
+          if (raw && !isValidEmail(raw)) {
+            invalidEmailLines.push(i + 2); // linha 1 = cabeçalho
+          }
+        });
+      }
+      if (invalidEmailLines.length > 0) {
+        const lineList = invalidEmailLines.slice(0, 20).join(', ');
+        const suffix = invalidEmailLines.length > 20 ? ` ... (${invalidEmailLines.length} linhas)` : '';
+        setImportResult({
+          total: rows.length,
+          inserted: 0,
+          updated: 0,
+          errors: invalidEmailLines.length,
+          errorMessage: `E-mail inválido no formato correto nas linhas: ${lineList}${suffix}`
+        });
+        setStep(3);
+        return;
+      }
+
       const contactsToImport: ImportContact[] = rows.map(row => {
-        const phone = formatPhoneNumber(row[phoneIdx] || '');
+        const phone = normalizePhoneNumber(row[phoneIdx] || '', 'BR');
 
         // Extract custom fields
         const rowCustomFields: Record<string, any> = {};

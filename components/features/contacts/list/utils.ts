@@ -41,6 +41,18 @@ export const formatPhoneNumber = (phone: string): string => {
   return cleaned.length > 0 ? '+' + cleaned : '';
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * Valida se o e-mail está no formato correto
+ * @param value - Valor a validar
+ * @returns true se o formato for válido
+ */
+export const isValidEmail = (value: string): boolean => {
+  const trimmed = (value || '').trim();
+  return trimmed.length > 0 ? EMAIL_REGEX.test(trimmed) : true;
+};
+
 /**
  * Get initials from a name or phone
  * @param name - Contact name or phone
