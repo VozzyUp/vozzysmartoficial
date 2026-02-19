@@ -1,6 +1,6 @@
 {
-  "coreVersion": "1.0.0",
-  "lastUpdate": null,
+  "coreVersion": "1.0.1",
+  "lastUpdate": "2026-02-19T13:41:32.492Z",
   "templateRepo": "VozzyUp/vozzysmart_template",
   "templateBranch": "main",
   "protectedFiles": [
