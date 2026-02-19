@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "changelog": [
     "Novo: Sistema de atualização automática do template",
     "Novo: Painel de atualizações na tela de configurações",
@@ -7,10 +7,13 @@
     "Novo: API para aplicar atualizações com backup automático",
     "Novo: Proteção de arquivos sensíveis (credenciais, configurações)",
     "Novo: Rollback automático em caso de falha na atualização",
+    "Novo: Redeploy automático após salvar token GitHub",
     "Melhoria: Validação de path traversal e segurança",
     "Melhoria: Feedback detalhado de linhas ignoradas na importação de contatos",
+    "Melhoria: Mensagens informativas sobre status do redeploy após salvar token",
     "Correção: Campos personalizados desaparecendo após refresh",
-    "Correção: Filtro de inbox mostrando apenas conversas abertas"
+    "Correção: Filtro de inbox mostrando apenas conversas abertas",
+    "Correção: Campo Nome do template permitindo campo vazio temporariamente"
   ],
   "filesToUpdate": [
     "version.json",
@@ -19,8 +22,10 @@
     "lib/update-protection.ts",
     "app/api/updates/check/route.ts",
     "app/api/updates/apply/route.ts",
+    "app/api/updates/github/save-token/route.ts",
     "components/features/settings/UpdatePanel.tsx",
     "components/features/settings/SettingsView.tsx",
+    "components/features/templates/utils/templateBuilderUtils.ts",
     "components/features/contacts/list/ContactImportModal.tsx",
     "components/features/contacts/list/types.ts",
     "components/features/contacts/list/utils.ts",
