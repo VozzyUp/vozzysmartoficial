@@ -185,14 +185,25 @@ export const UpdatePanel: React.FC = () => {
         return
       }
 
-      toast.success(result.message || 'Token salvo com sucesso!')
+      // Mostrar mensagem de sucesso com informações sobre o redeploy
+      if (result.redeployTriggered) {
+        toast.success('Token salvo! Redeploy iniciado. Aguarde alguns minutos para o sistema reconhecer o novo token.', {
+          duration: 6000,
+        })
+      } else {
+        toast.success(result.message || 'Token salvo com sucesso!', {
+          duration: 5000,
+        })
+      }
+      
       setGithubToken('')
       setShowTokenForm(false)
       
-      // Aguardar alguns segundos e verificar status novamente
+      // Aguardar mais tempo se o redeploy foi iniciado, para dar tempo do deploy processar
+      const waitTime = result.redeployTriggered ? 10000 : 2000
       setTimeout(() => {
         checkGitHubStatus()
-      }, 2000)
+      }, waitTime)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao salvar token'
       toast.error(message)

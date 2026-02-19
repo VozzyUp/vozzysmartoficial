@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSessionOrApiKey } from '@/lib/request-auth'
 import { validateGitHubToken } from '@/lib/installer/github'
-import { upsertEnvVar } from '@/lib/vercel-api'
+import { upsertEnvVar, triggerDeployment } from '@/lib/vercel-api'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -14,6 +14,7 @@ interface SaveTokenResponse {
   success: boolean
   error?: string
   message?: string
+  redeployTriggered?: boolean
 }
 
 export async function POST(request: NextRequest) {
@@ -106,9 +107,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Trigger redeploy para que o Vercel reconheça a nova variável de ambiente
+    let redeployTriggered = false
+    
+    // Tentar primeiro via API do Vercel
+    try {
+      const redeployResult = await triggerDeployment(vercelToken, projectId, teamId)
+      if (redeployResult.success) {
+        redeployTriggered = true
+        console.log('[Save GitHub Token] Redeploy iniciado via API:', redeployResult.data?.uid)
+      } else {
+        console.warn('[Save GitHub Token] Falha ao iniciar redeploy via API:', redeployResult.error)
+      }
+    } catch (error) {
+      console.error('[Save GitHub Token] Erro ao iniciar redeploy via API:', error)
+    }
+    
+    // Se não funcionou via API, tentar deploy hook como fallback
+    if (!redeployTriggered) {
+      const deployHookUrl = process.env.VERCEL_DEPLOY_HOOK_URL
+      if (deployHookUrl) {
+        try {
+          const hookResponse = await fetch(deployHookUrl, {
+            method: 'POST',
+            cache: 'no-store',
+          })
+          if (hookResponse.ok) {
+            redeployTriggered = true
+            console.log('[Save GitHub Token] Redeploy iniciado via deploy hook')
+          }
+        } catch (error) {
+          console.error('[Save GitHub Token] Erro ao trigger deploy hook:', error)
+        }
+      }
+    }
+
     return NextResponse.json<SaveTokenResponse>({
       success: true,
-      message: 'Token GitHub salvo com sucesso! Aguarde alguns segundos e clique em "Verificar" novamente para atualizar o status.',
+      message: redeployTriggered
+        ? 'Token GitHub salvo com sucesso! Um novo deploy foi iniciado para aplicar as mudanças. Aguarde alguns minutos e clique em "Verificar" novamente.'
+        : 'Token GitHub salvo com sucesso! Um novo deploy será necessário para aplicar as mudanças. Você pode fazer isso manualmente no Vercel ou aguardar o próximo commit.',
+      redeployTriggered,
     })
   } catch (error) {
     console.error('[Save GitHub Token] Erro:', error)
