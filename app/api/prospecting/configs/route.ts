@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSessionOrApiKey } from '@/lib/request-auth'
 import { ProspectingConfigSchema, validateBody, formatZodErrors, extractErrorMessage } from '@/lib/api-validation'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { settingsDb } from '@/lib/supabase-db'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -77,6 +78,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const hasdataApiKey =
+      (validation.data.hasdata_api_key && validation.data.hasdata_api_key.trim()) ||
+      (await settingsDb.get('hasdata_api_key')) ||
+      process.env.HASDATA_API_KEY ||
+      ''
+
+    if (!hasdataApiKey) {
+      return NextResponse.json(
+        { error: 'Configure a chave API HasData em Modelo de busca antes de criar um modelo.' },
+        { status: 400 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('prospecting_configs')
       .insert({
@@ -85,7 +99,7 @@ export async function POST(request: NextRequest) {
         localizacoes: validation.data.localizacoes,
         variacoes: validation.data.variacoes,
         paginas_por_localizacao: validation.data.paginas_por_localizacao,
-        hasdata_api_key: validation.data.hasdata_api_key,
+        hasdata_api_key: hasdataApiKey,
       })
       .select()
       .single()

@@ -26,7 +26,6 @@ export const ProspectingConfigForm: React.FC<ProspectingConfigFormProps> = ({
   const [localizacoes, setLocalizacoes] = useState('')
   const [variacoes, setVariacoes] = useState('')
   const [paginasPorLocalizacao, setPaginasPorLocalizacao] = useState(3)
-  const [hasdataApiKey, setHasdataApiKey] = useState('')
 
   useEffect(() => {
     if (config) {
@@ -35,7 +34,6 @@ export const ProspectingConfigForm: React.FC<ProspectingConfigFormProps> = ({
       setLocalizacoes(config.localizacoes.join('\n'))
       setVariacoes(config.variacoes.join('\n'))
       setPaginasPorLocalizacao(config.paginas_por_localizacao)
-      setHasdataApiKey(config.hasdata_api_key)
     }
   }, [config])
 
@@ -63,7 +61,7 @@ export const ProspectingConfigForm: React.FC<ProspectingConfigFormProps> = ({
       localizacoes: localizacoesArray,
       variacoes: variacoesArray,
       paginas_por_localizacao: paginasPorLocalizacao,
-      hasdata_api_key: hasdataApiKey,
+      hasdata_api_key: '', // Usa chave global (configurada em Modelo de busca)
     })
   }
 
@@ -71,7 +69,7 @@ export const ProspectingConfigForm: React.FC<ProspectingConfigFormProps> = ({
     <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <Label htmlFor="name">Nome da Configuração</Label>
+          <Label htmlFor="name">Nome do modelo</Label>
           <Input
             id="name"
             value={name}
@@ -131,19 +129,6 @@ export const ProspectingConfigForm: React.FC<ProspectingConfigFormProps> = ({
             max="10"
             value={paginasPorLocalizacao}
             onChange={(e) => setPaginasPorLocalizacao(parseInt(e.target.value) || 3)}
-            disabled={isSaving}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="apiKey">API Key HasData</Label>
-          <Input
-            id="apiKey"
-            type="password"
-            value={hasdataApiKey}
-            onChange={(e) => setHasdataApiKey(e.target.value)}
-            placeholder="Cole sua API Key do HasData"
-            required
             disabled={isSaving}
           />
         </div>

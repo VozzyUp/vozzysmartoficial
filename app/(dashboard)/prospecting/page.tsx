@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Plus, Trash2, Pencil, Settings, Search, FileText } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Plus, Trash2, Pencil, Settings, Search, FileText, Eye, EyeOff, Key } from 'lucide-react'
 import { Page, PageHeader, PageTitle, PageDescription, PageActions } from '@/components/ui/page'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/container'
@@ -28,12 +28,53 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 
 type Tab = 'configs' | 'search' | 'results'
 
 export default function ProspectingPage() {
   const [activeTab, setActiveTab] = useState<Tab>('configs')
   const [showConfigForm, setShowConfigForm] = useState(false)
+  const [hasdataApiKey, setHasdataApiKey] = useState('')
+  const [showHasdataKey, setShowHasdataKey] = useState(false)
+  const [isSavingHasdataKey, setIsSavingHasdataKey] = useState(false)
+  const [hasdataKeyConfigured, setHasdataKeyConfigured] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/prospecting/hasdata-key')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => data && setHasdataKeyConfigured(!!data.configured))
+      .catch(() => {})
+  }, [])
+
+  const handleSaveHasdataKey = async () => {
+    if (!hasdataApiKey.trim()) {
+      toast.error('Digite a chave API do HasData')
+      return
+    }
+    setIsSavingHasdataKey(true)
+    try {
+      const res = await fetch('/api/prospecting/hasdata-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: hasdataApiKey.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Erro ao salvar chave')
+        return
+      }
+      setHasdataKeyConfigured(true)
+      toast.success(data.message || 'Chave salva com sucesso!')
+      setHasdataApiKey('')
+    } catch {
+      toast.error('Erro ao salvar chave')
+    } finally {
+      setIsSavingHasdataKey(false)
+    }
+  }
   const [editingConfig, setEditingConfig] = useState<ProspectingConfig | null>(null)
   const [deleteConfigId, setDeleteConfigId] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<{
@@ -113,7 +154,7 @@ export default function ProspectingPage() {
           }`}
         >
           <Settings className="w-4 h-4" />
-          Configurações
+          Modelo de busca
         </button>
         <button
           onClick={() => setActiveTab('search')}
@@ -148,6 +189,49 @@ export default function ProspectingPage() {
       {/* Tab Content */}
       {activeTab === 'configs' && (
         <div className="space-y-4">
+          {/* Chave HasData - campo isolado no topo */}
+          <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="hasdata-key" className="flex items-center gap-2 text-[var(--ds-text-primary)]">
+                  <Key size={16} />
+                  Chave API HasData
+                </Label>
+                <div className="relative mt-1">
+                  <Input
+                    id="hasdata-key"
+                    type={showHasdataKey ? 'text' : 'password'}
+                    value={hasdataApiKey}
+                    onChange={e => setHasdataApiKey(e.target.value)}
+                    placeholder={hasdataKeyConfigured ? 'Chave configurada (deixe em branco para manter)' : 'Cole sua API Key do HasData'}
+                    disabled={isSavingHasdataKey}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowHasdataKey(!showHasdataKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)] hover:text-[var(--ds-text-primary)] p-1"
+                    tabIndex={-1}
+                  >
+                    {showHasdataKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <Button
+                onClick={handleSaveHasdataKey}
+                disabled={isSavingHasdataKey || !hasdataApiKey.trim()}
+              >
+                {isSavingHasdataKey ? (
+                  <Loader2 size={16} className="animate-spin mr-2" />
+                ) : null}
+                Salvar chave
+              </Button>
+            </div>
+            {hasdataKeyConfigured && (
+              <p className="text-xs text-[var(--ds-text-muted)] mt-2">Chave configurada. O sistema usa cache local até o Vercel ser atualizado.</p>
+            )}
+          </Container>
+
           {showConfigForm ? (
             <ProspectingConfigForm
               config={editingConfig}
@@ -163,7 +247,7 @@ export default function ProspectingPage() {
               <div className="flex justify-end mb-4">
                 <Button onClick={() => setShowConfigForm(true)}>
                   <Plus size={16} className="mr-2" />
-                  Nova Configuração
+                  Novo Modelo
                 </Button>
               </div>
 
@@ -220,7 +304,7 @@ export default function ProspectingPage() {
               ) : (
                 <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
                   <p className="text-center text-[var(--ds-text-muted)]">
-                    Nenhuma configuração salva. Crie uma nova configuração para começar.
+                    Nenhum modelo de busca salvo. Crie um novo modelo para começar.
                   </p>
                 </Container>
               )}
@@ -254,7 +338,7 @@ export default function ProspectingPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta configuração? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir este modelo de busca? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

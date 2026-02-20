@@ -329,7 +329,7 @@ export const ProspectingConfigSchema = z.object({
   localizacoes: z.array(z.string().min(1, 'Localização não pode ser vazia')).min(1, 'Pelo menos uma localização é necessária'),
   variacoes: z.array(z.string().min(1, 'Variação não pode ser vazia')).optional().default([]),
   paginas_por_localizacao: z.number().int().min(1).max(10).optional().default(3),
-  hasdata_api_key: z.string().min(1, 'API Key do HasData é obrigatória'),
+  hasdata_api_key: z.string().optional(), // Usa chave global de settings quando vazio
 })
 
 export const UpdateProspectingConfigSchema = ProspectingConfigSchema.partial()
@@ -347,9 +347,9 @@ export const ProspectingSearchSchema = z.object({
   variacao: z.string().optional(),
   pagina: z.number().int().min(0).optional().default(0),
 }).refine(
-  (data) => data.configId || (data.nicho && data.localizacoes && data.hasdata_api_key),
+  (data) => data.configId || (data.nicho && data.localizacoes),
   {
-    message: 'Forneça configId ou configuração completa (nicho, localizacoes, hasdata_api_key)',
+    message: 'Forneça configId ou nicho e localizacoes (a chave HasData é global)',
   }
 )
 

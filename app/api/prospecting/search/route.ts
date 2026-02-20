@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSessionOrApiKey } from '@/lib/request-auth'
 import { ProspectingSearchSchema, validateBody, formatZodErrors, extractErrorMessage } from '@/lib/api-validation'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { settingsDb } from '@/lib/supabase-db'
 import { fetchGoogleMapsData, getCoordinates, formatCoordinatesForHasData, processProspectingResults } from '@/lib/prospecting/google-maps'
 import { filterValidWhatsAppPhones } from '@/lib/prospecting/phone-filter'
 import { checkExistingPhones, markDuplicates } from '@/lib/prospecting/deduplication'
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
 
       if (configError || !configData) {
         return NextResponse.json(
-          { error: 'Configuração não encontrada' },
+          { error: 'Modelo de busca não encontrado' },
           { status: 404 }
         )
       }
@@ -91,8 +92,22 @@ export async function POST(request: NextRequest) {
         localizacoes: validation.data.localizacoes!,
         variacoes: validation.data.variacoes || [],
         paginas_por_localizacao: validation.data.paginas_por_localizacao || 3,
-        hasdata_api_key: validation.data.hasdata_api_key!,
+        hasdata_api_key: validation.data.hasdata_api_key || '',
       }
+    }
+
+    // Resolver chave HasData: env -> settings (cache) -> config
+    let hasdataApiKey: string =
+      process.env.HASDATA_API_KEY ||
+      (await settingsDb.get('hasdata_api_key')) ||
+      config.hasdata_api_key ||
+      ''
+
+    if (!hasdataApiKey) {
+      return NextResponse.json(
+        { error: 'Chave API HasData não configurada. Configure em Modelo de busca.' },
+        { status: 400 }
+      )
     }
 
     // Determinar localização e variação para buscar
@@ -134,7 +149,7 @@ export async function POST(request: NextRequest) {
         ll,
         start,
       },
-      config.hasdata_api_key
+      hasdataApiKey
     )
 
     // Processar resultados

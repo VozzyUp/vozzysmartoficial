@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSessionOrApiKey } from '@/lib/request-auth'
 import { UpdateProspectingConfigSchema, validateBody, formatZodErrors, extractErrorMessage } from '@/lib/api-validation'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { settingsDb } from '@/lib/supabase-db'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -45,12 +46,16 @@ export async function PUT(
       )
     }
 
+    const updateData: Record<string, unknown> = { ...validation.data, updated_at: new Date().toISOString() }
+    if (updateData.hasdata_api_key === '' || updateData.hasdata_api_key == null) {
+      const globalKey = (await settingsDb.get('hasdata_api_key')) || process.env.HASDATA_API_KEY
+      if (globalKey) updateData.hasdata_api_key = globalKey
+      else delete updateData.hasdata_api_key
+    }
+
     const { data, error } = await supabase
       .from('prospecting_configs')
-      .update({
-        ...validation.data,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
@@ -58,7 +63,7 @@ export async function PUT(
     if (error) {
       if (error.code === 'PGRST116') {
         return NextResponse.json(
-          { error: 'Configuração não encontrada' },
+          { error: 'Modelo de busca não encontrado' },
           { status: 404 }
         )
       }

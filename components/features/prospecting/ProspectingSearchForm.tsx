@@ -34,7 +34,6 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
   const [quickNicho, setQuickNicho] = useState('')
   const [quickLocalizacao, setQuickLocalizacao] = useState('')
   const [quickVariacao, setQuickVariacao] = useState('')
-  const [quickApiKey, setQuickApiKey] = useState('')
   const [pagina, setPagina] = useState(0)
 
   const selectedConfig = configs.find(c => c.id === selectedConfigId)
@@ -43,8 +42,8 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
     e.preventDefault()
 
     if (useQuickSearch) {
-      if (!quickNicho || !quickLocalizacao || !quickApiKey) {
-        alert('Preencha todos os campos obrigatórios')
+      if (!quickNicho || !quickLocalizacao) {
+        alert('Preencha nicho e localização')
         return
       }
 
@@ -53,14 +52,13 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
         localizacoes: [quickLocalizacao],
         variacoes: quickVariacao ? [quickVariacao] : [],
         paginas_por_localizacao: 3,
-        hasdata_api_key: quickApiKey,
         localizacao: quickLocalizacao,
         variacao: quickVariacao || undefined,
         pagina,
       })
     } else {
       if (!selectedConfigId) {
-        alert('Selecione uma configuração')
+        alert('Selecione um modelo')
         return
       }
 
@@ -84,7 +82,7 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
               onChange={() => setUseQuickSearch(false)}
               className="w-4 h-4"
             />
-            <span className="text-sm text-[var(--ds-text-primary)]">Usar Configuração Salva</span>
+            <span className="text-sm text-[var(--ds-text-primary)]">Usar Modelo Salvo</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -100,7 +98,7 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
         {!useQuickSearch ? (
           <>
             <div>
-              <Label htmlFor="config">Configuração</Label>
+              <Label htmlFor="config">Modelo</Label>
               <select
                 id="config"
                 value={selectedConfigId}
@@ -109,7 +107,7 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
                 required
                 disabled={isSearching}
               >
-                <option value="">Selecione uma configuração</option>
+                <option value="">Selecione um modelo</option>
                 {configs.map(config => (
                   <option key={config.id} value={config.id}>
                     {config.name}
@@ -161,19 +159,6 @@ export const ProspectingSearchForm: React.FC<ProspectingSearchFormProps> = ({
                 value={quickVariacao}
                 onChange={(e) => setQuickVariacao(e.target.value)}
                 placeholder="Ex: hamburgueria"
-                disabled={isSearching}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="quickApiKey">API Key HasData</Label>
-              <Input
-                id="quickApiKey"
-                type="password"
-                value={quickApiKey}
-                onChange={(e) => setQuickApiKey(e.target.value)}
-                placeholder="Cole sua API Key do HasData"
-                required
                 disabled={isSearching}
               />
             </div>
