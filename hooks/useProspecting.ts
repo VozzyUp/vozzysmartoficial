@@ -91,18 +91,35 @@ export function useProspectingSearch() {
       variacao?: string
       pagina?: number
     }) => {
-      console.log('[useProspectingSearch] Buscando com params:', params)
+      console.group('🚀 [PROSPECÇÃO] Iniciando busca')
+      console.log('⚙️ Parâmetros recebidos:', params)
+      console.log('🕐 Início:', new Date().toISOString())
+      console.groupEnd()
+      
       try {
         const result = await prospectingService.search(params)
-        console.log('[useProspectingSearch] Resultado recebido:', result)
+        
+        console.group('✅ [PROSPECÇÃO] Busca concluída')
+        console.log('📊 Resultado:', result)
+        console.log('📈 Estatísticas:', {
+          total: result.total,
+          novos: result.novos,
+          duplicados: result.duplicados,
+        })
+        console.log('🕐 Fim:', new Date().toISOString())
+        console.groupEnd()
+        
         return result
       } catch (error) {
-        console.error('[useProspectingSearch] Erro:', error)
+        console.group('❌ [PROSPECÇÃO] Erro na busca')
+        console.error('Erro completo:', error)
+        console.error('Mensagem:', error instanceof Error ? error.message : String(error))
+        console.groupEnd()
         throw error
       }
     },
     onError: (error: Error) => {
-      console.error('[useProspectingSearch] Erro no hook:', error)
+      console.error('❌ [PROSPECÇÃO] Erro no hook:', error)
       toast.error(error.message || 'Erro ao buscar dados')
     },
   })

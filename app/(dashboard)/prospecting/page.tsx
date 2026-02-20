@@ -132,12 +132,25 @@ export default function ProspectingPage() {
     pagina?: number
   }) => {
     try {
-      console.log('[Prospecting Page] Iniciando busca com params:', params)
+      console.group('🎯 [PROSPECÇÃO] Iniciando busca na página')
+      console.log('📝 Parâmetros:', params)
+      console.log('🕐 Timestamp:', new Date().toISOString())
+      console.groupEnd()
+      
       const result = await searchMutation.mutateAsync(params)
-      console.log('[Prospecting Page] Resultado recebido:', result)
+      
+      console.group('📋 [PROSPECÇÃO] Resultado na página')
+      console.log('📊 Resultado completo:', result)
+      console.log('📈 Estatísticas:', {
+        total: result?.total || 0,
+        novos: result?.novos || 0,
+        duplicados: result?.duplicados || 0,
+      })
+      console.groupEnd()
       
       if (!result || result.total === 0) {
-        toast.warning('Nenhum resultado encontrado. Verifique os parâmetros de busca.')
+        toast.warning('Nenhum resultado encontrado. Verifique os logs do console (F12) para mais detalhes.')
+        console.warn('⚠️ [PROSPECÇÃO] Nenhum resultado encontrado. Verifique os logs acima para diagnosticar o problema.')
       } else {
         toast.success(`Encontrados ${result.total} resultado(s)`)
       }
@@ -145,7 +158,7 @@ export default function ProspectingPage() {
       setSearchResults(result)
       setActiveTab('results')
     } catch (error) {
-      console.error('[Prospecting Page] Erro na busca:', error)
+      console.error('❌ [PROSPECÇÃO] Erro na busca (página):', error)
       // O erro já é tratado no hook, mas vamos garantir que o usuário veja
     }
   }

@@ -112,22 +112,46 @@ export const prospectingService = {
     variacao?: string
     pagina?: number
   }): Promise<ProspectingSearchResponse> => {
-    console.log('[prospectingService.search] Chamando API com params:', params)
-    const response = await fetch('/api/prospecting/search', {
+    const url = '/api/prospecting/search'
+    const requestBody = JSON.stringify(params)
+    
+    console.group('🔍 [PROSPECÇÃO] Requisição para API')
+    console.log('📍 URL:', url)
+    console.log('📤 Método: POST')
+    console.log('📋 Parâmetros enviados:', params)
+    console.log('📦 Body (JSON):', requestBody)
+    console.log('⏰ Timestamp:', new Date().toISOString())
+    console.groupEnd()
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
+      body: requestBody,
     })
+    
+    console.group('📥 [PROSPECÇÃO] Resposta da API')
+    console.log('✅ Status:', response.status, response.statusText)
+    console.log('🔗 URL da resposta:', response.url)
+    console.log('📋 Headers:', Object.fromEntries(response.headers.entries()))
     
     const responseData = await response.json()
-    console.log('[prospectingService.search] Resposta da API:', {
-      ok: response.ok,
-      status: response.status,
-      data: responseData,
+    console.log('📦 Dados recebidos:', responseData)
+    console.log('📊 Resumo:', {
+      total: responseData.total || 0,
+      novos: responseData.novos || 0,
+      duplicados: responseData.duplicados || 0,
+      resultadosCount: Array.isArray(responseData.results) ? responseData.results.length : 0,
+      temErro: !!responseData.error,
     })
+    console.groupEnd()
     
     if (!response.ok) {
+      console.error('❌ [PROSPECÇÃO] Erro na resposta:', responseData)
       throw new Error(responseData.error || 'Falha ao buscar dados')
+    }
+    
+    if (responseData.total === 0) {
+      console.warn('⚠️ [PROSPECÇÃO] Nenhum resultado encontrado. Verifique os logs do servidor para mais detalhes.')
     }
     
     return responseData
