@@ -56,6 +56,23 @@ async function getWhatsAppAccessToken(): Promise<string | null> {
   return credentials?.accessToken || null
 }
 
+/** Resolve Meta media ID to download URL via Media API */
+async function resolveMediaIdToUrl(mediaId: string): Promise<string | null> {
+  const token = await getWhatsAppAccessToken()
+  if (!token) return null
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v24.0/${encodeURIComponent(mediaId)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!res.ok) return null
+    const json = (await res.json()) as { url?: string }
+    return json?.url && typeof json.url === 'string' ? json.url : null
+  } catch {
+    return null
+  }
+}
+
 // Get or generate webhook verify token (Supabase settings preferred, env var fallback)
 import { getVerifyToken } from '@/lib/verify-token'
 
@@ -958,6 +975,24 @@ export async function POST(request: NextRequest) {
           // =================================================================
           // T046-T047: Persist to Inbox and trigger AI if mode=bot
           // =================================================================
+          // Meta webhook envia media.id, não url. Resolver via Media API quando necessário.
+          let mediaUrl =
+            message.image?.url ||
+            message.video?.url ||
+            message.audio?.url ||
+            message.document?.url ||
+            null
+          if (!mediaUrl) {
+            const mediaId =
+              message.image?.id ||
+              message.video?.id ||
+              message.audio?.id ||
+              message.document?.id ||
+              null
+            if (mediaId) {
+              mediaUrl = await resolveMediaIdToUrl(mediaId).catch(() => null)
+            }
+          }
           try {
             const inboxResult = await handleInboundMessage({
               messageId: message.id || '',
@@ -965,7 +1000,7 @@ export async function POST(request: NextRequest) {
               type: messageType,
               text,
               timestamp: message.timestamp,
-              mediaUrl: message.image?.url || message.video?.url || message.audio?.url || message.document?.url || null,
+              mediaUrl,
               phoneNumberId: phoneNumberId || undefined,
             })
             console.log(`📥 Inbox: conversation=${inboxResult.conversationId}, message=${inboxResult.messageId}, ai=${inboxResult.triggeredAI}`)

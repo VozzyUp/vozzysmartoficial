@@ -12,7 +12,18 @@
  */
 
 import React, { memo, useMemo, useState } from 'react'
-import { Check, CheckCheck, Clock, AlertCircle, Sparkles, ArrowRightLeft, FileText } from 'lucide-react'
+import {
+  Check,
+  CheckCheck,
+  Clock,
+  AlertCircle,
+  Sparkles,
+  ArrowRightLeft,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Music,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatTime } from '@/lib/date-utils'
 import {
@@ -395,17 +406,29 @@ function MediaContent({
     )
   }
 
-  // Fallback: media_url missing or image load failed
-  const fallbackLabels: Record<string, string> = {
-    image: '[Imagem]',
-    video: '[Vídeo]',
-    audio: '[Áudio]',
-    document: '[Documento]',
+  // Fallback: media_url missing, image load failed, or outbound (sem URL armazenada)
+  const isOutbound = message.direction === 'outbound'
+  const icons: Record<string, React.ReactNode> = {
+    image: <ImageIcon className="h-8 w-8" />,
+    video: <Video className="h-8 w-8" />,
+    audio: <Music className="h-8 w-8" />,
+    document: <FileText className="h-8 w-8" />,
   }
+  const labels: Record<string, string> = {
+    image: isOutbound ? 'Imagem enviada' : 'Imagem',
+    video: isOutbound ? 'Vídeo enviado' : 'Vídeo',
+    audio: isOutbound ? 'Áudio enviado' : 'Áudio',
+    document: isOutbound ? 'Documento enviado' : 'Documento',
+  }
+  const isPlaceholder = !content || /^\[.+\]$/.test(content.trim())
+  const displayLabel = isPlaceholder ? (labels[mt] || 'Mídia') : content
   return (
-    <p className="text-sm text-[var(--ds-text-muted)]">
-      {content || fallbackLabels[mt] || '[Mídia]'}
-    </p>
+    <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-black/15">
+      <span className="text-[var(--ds-text-muted)] flex-shrink-0">
+        {icons[mt] || <FileText className="h-8 w-8" />}
+      </span>
+      <p className="text-sm text-[var(--ds-text-secondary)] truncate">{displayLabel}</p>
+    </div>
   )
 }
 
