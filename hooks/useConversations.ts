@@ -4,7 +4,12 @@
  */
 
 import { useMemo, useCallback, useEffect, useRef } from 'react'
-import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+  type InfiniteData,
+} from '@tanstack/react-query'
 import {
   inboxService,
   type ConversationListParams,
@@ -149,6 +154,38 @@ export function useConversations(params: UseConversationsParams = {}) {
 // Mutations Hook
 // =============================================================================
 
+/**
+ * Atualiza conversas no cache. Suporta tanto estrutura infinite ({ pages })
+ * quanto legada ({ conversations }) para evitar crash após refactor.
+ */
+function updateConversationsInCache(
+  old:
+    | ConversationListResult
+    | InfiniteData<ConversationListResult>
+    | undefined,
+  updater: (c: InboxConversation) => InboxConversation
+): typeof old {
+  if (!old) return old
+  if ('pages' in old && Array.isArray((old as InfiniteData<ConversationListResult>).pages)) {
+    const data = old as InfiniteData<ConversationListResult>
+    return {
+      ...data,
+      pages: data.pages.map((page) => ({
+        ...page,
+        conversations: page.conversations.map(updater),
+      })),
+    }
+  }
+  if ('conversations' in old && Array.isArray((old as ConversationListResult).conversations)) {
+    const data = old as ConversationListResult
+    return {
+      ...data,
+      conversations: data.conversations.map(updater),
+    }
+  }
+  return old
+}
+
 export function useConversationMutations() {
   const queryClient = useQueryClient()
 
@@ -157,18 +194,12 @@ export function useConversationMutations() {
     mutationFn: ({ id, ...params }: { id: string } & Parameters<typeof inboxService.updateConversation>[1]) =>
       inboxService.updateConversation(id, params),
     onSuccess: (updated) => {
-      // Update in list cache
-      queryClient.setQueriesData<ConversationListResult>(
+      queryClient.setQueriesData(
         { queryKey: CONVERSATIONS_LIST_KEY },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            conversations: old.conversations.map((c) =>
-              c.id === updated.id ? { ...c, ...updated } : c
-            ),
-          }
-        }
+        (old) =>
+          updateConversationsInCache(old as InfiniteData<ConversationListResult>, (c) =>
+            c.id === updated.id ? { ...c, ...updated } : c
+          )
       )
       // Update single conversation cache
       queryClient.setQueryData([CONVERSATIONS_KEY, updated.id], updated)
@@ -181,18 +212,12 @@ export function useConversationMutations() {
     onMutate: async (conversationId) => {
       await queryClient.cancelQueries({ queryKey: CONVERSATIONS_LIST_KEY })
 
-      // Optimistic update
-      queryClient.setQueriesData<ConversationListResult>(
+      queryClient.setQueriesData(
         { queryKey: CONVERSATIONS_LIST_KEY },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            conversations: old.conversations.map((c) =>
-              c.id === conversationId ? { ...c, unread_count: 0 } : c
-            ),
-          }
-        }
+        (old) =>
+          updateConversationsInCache(old as InfiniteData<ConversationListResult>, (c) =>
+            c.id === conversationId ? { ...c, unread_count: 0 } : c
+          )
       )
     },
   })
@@ -239,18 +264,12 @@ export function useConversationMutations() {
         ? new Date(Date.now() + effectiveTimeout).toISOString()
         : null
 
-      // Optimistic update - Lista de conversas
-      queryClient.setQueriesData<ConversationListResult>(
+      queryClient.setQueriesData(
         { queryKey: CONVERSATIONS_LIST_KEY },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            conversations: old.conversations.map((c) =>
-              c.id === id ? { ...c, mode, human_mode_expires_at } : c
-            ),
-          }
-        }
+        (old) =>
+          updateConversationsInCache(old as InfiniteData<ConversationListResult>, (c) =>
+            c.id === id ? { ...c, mode, human_mode_expires_at } : c
+          )
       )
 
       // Optimistic update - Conversa individual (para o ConversationHeader)
@@ -273,21 +292,14 @@ export function useConversationMutations() {
       await queryClient.cancelQueries({ queryKey: CONVERSATIONS_LIST_KEY })
       await queryClient.cancelQueries({ queryKey: getConversationQueryKey(id) })
 
-      // Optimistic update - Lista de conversas
-      queryClient.setQueriesData<ConversationListResult>(
+      queryClient.setQueriesData(
         { queryKey: CONVERSATIONS_LIST_KEY },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            conversations: old.conversations.map((c) =>
-              c.id === id ? { ...c, mode: 'human' as ConversationMode } : c
-            ),
-          }
-        }
+        (old) =>
+          updateConversationsInCache(old as InfiniteData<ConversationListResult>, (c) =>
+            c.id === id ? { ...c, mode: 'human' as ConversationMode } : c
+          )
       )
 
-      // Optimistic update - Conversa individual
       queryClient.setQueryData<InboxConversation | null>(
         getConversationQueryKey(id),
         (old) => (old ? { ...old, mode: 'human' as ConversationMode } : old)
@@ -306,21 +318,14 @@ export function useConversationMutations() {
       await queryClient.cancelQueries({ queryKey: CONVERSATIONS_LIST_KEY })
       await queryClient.cancelQueries({ queryKey: getConversationQueryKey(id) })
 
-      // Optimistic update - Lista de conversas
-      queryClient.setQueriesData<ConversationListResult>(
+      queryClient.setQueriesData(
         { queryKey: CONVERSATIONS_LIST_KEY },
-        (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            conversations: old.conversations.map((c) =>
-              c.id === id ? { ...c, mode: 'bot' as ConversationMode } : c
-            ),
-          }
-        }
+        (old) =>
+          updateConversationsInCache(old as InfiniteData<ConversationListResult>, (c) =>
+            c.id === id ? { ...c, mode: 'bot' as ConversationMode } : c
+          )
       )
 
-      // Optimistic update - Conversa individual
       queryClient.setQueryData<InboxConversation | null>(
         getConversationQueryKey(id),
         (old) => (old ? { ...old, mode: 'bot' as ConversationMode } : old)
