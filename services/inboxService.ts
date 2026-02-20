@@ -45,9 +45,12 @@ export interface MessageListResult {
 
 export interface SendMessageParams {
   content: string
-  message_type?: 'text' | 'template'
+  message_type?: 'text' | 'template' | 'image' | 'video' | 'audio' | 'document'
   template_name?: string
   template_params?: Record<string, string[]>
+  media_id?: string
+  media_url?: string
+  filename?: string
 }
 
 export interface UpdateConversationParams {
@@ -162,6 +165,34 @@ async function sendMessage(conversationId: string, params: SendMessageParams): P
     throw new Error(error.error || 'Failed to send message')
   }
   return response.json()
+}
+
+export interface UploadMediaResult {
+  mediaId: string
+  mediaType: 'image' | 'video' | 'audio' | 'document'
+  filename?: string
+}
+
+async function uploadMedia(file: File): Promise<UploadMediaResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch('/api/inbox/media/upload', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to upload media' }))
+    throw new Error(error.error || 'Failed to upload media')
+  }
+
+  const data = await response.json()
+  return {
+    mediaId: data.mediaId,
+    mediaType: data.mediaType,
+    filename: data.filename ?? file.name,
+  }
 }
 
 // =============================================================================
@@ -364,6 +395,7 @@ export const inboxService = {
   // Messages
   listMessages,
   sendMessage,
+  uploadMedia,
 
   // Labels
   listLabels,

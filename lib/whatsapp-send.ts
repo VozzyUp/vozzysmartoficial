@@ -5,12 +5,26 @@
 
 import { getWhatsAppCredentials, type WhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { buildTextMessage } from '@/lib/whatsapp/text'
+import {
+  buildImageMessage,
+  buildVideoMessage,
+  buildAudioMessage,
+  buildDocumentMessage,
+} from '@/lib/whatsapp/media'
 import { fetchWithTimeout, safeJson, safeText } from '@/lib/server-http'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 
+export type SendWhatsAppMessageType =
+  | 'text'
+  | 'template'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+
 export interface SendWhatsAppMessageOptions {
   to: string
-  type: 'text' | 'template'
+  type: SendWhatsAppMessageType
   // Text message
   text?: string
   previewUrl?: boolean
@@ -18,6 +32,11 @@ export interface SendWhatsAppMessageOptions {
   // Template message
   templateName?: string
   templateParams?: Record<string, string[]>
+  // Media messages (image, video, audio, document)
+  mediaId?: string
+  mediaUrl?: string
+  caption?: string
+  filename?: string
   // Credentials override (optional - will fetch from settings if not provided)
   credentials?: WhatsAppCredentials
 }
@@ -54,7 +73,47 @@ export async function sendWhatsAppMessage(
   let payload: Record<string, unknown>
 
   if (options.type === 'template' && options.templateName) {
-    payload = buildTemplatePayload(normalizedTo, options.templateName, options.templateParams)
+    payload = buildTemplatePayload(
+      normalizedTo,
+      options.templateName,
+      options.templateParams
+    )
+  } else if (options.type === 'image' && (options.mediaId || options.mediaUrl)) {
+    payload = buildImageMessage({
+      to: normalizedTo,
+      mediaId: options.mediaId,
+      mediaUrl: options.mediaUrl,
+      caption: options.caption,
+      replyToMessageId: options.replyToMessageId,
+    }) as unknown as Record<string, unknown>
+  } else if (options.type === 'video' && (options.mediaId || options.mediaUrl)) {
+    payload = buildVideoMessage({
+      to: normalizedTo,
+      mediaId: options.mediaId,
+      mediaUrl: options.mediaUrl,
+      caption: options.caption,
+      replyToMessageId: options.replyToMessageId,
+    }) as unknown as Record<string, unknown>
+  } else if (options.type === 'audio' && (options.mediaId || options.mediaUrl)) {
+    payload = buildAudioMessage({
+      to: normalizedTo,
+      mediaId: options.mediaId,
+      mediaUrl: options.mediaUrl,
+      replyToMessageId: options.replyToMessageId,
+    }) as unknown as Record<string, unknown>
+  } else if (
+    options.type === 'document' &&
+    (options.mediaId || options.mediaUrl) &&
+    options.filename
+  ) {
+    payload = buildDocumentMessage({
+      to: normalizedTo,
+      mediaId: options.mediaId,
+      mediaUrl: options.mediaUrl,
+      filename: options.filename,
+      caption: options.caption,
+      replyToMessageId: options.replyToMessageId,
+    }) as unknown as Record<string, unknown>
   } else {
     // Default to text
     const textPayload = buildTextMessage({

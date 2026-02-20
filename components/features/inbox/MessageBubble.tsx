@@ -11,8 +11,8 @@
  * - Typography-first, minimal chrome
  */
 
-import React, { memo, useMemo } from 'react'
-import { Check, CheckCheck, Clock, AlertCircle, Sparkles, ArrowRightLeft } from 'lucide-react'
+import React, { memo, useMemo, useState } from 'react'
+import { Check, CheckCheck, Clock, AlertCircle, Sparkles, ArrowRightLeft, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatTime } from '@/lib/date-utils'
 import {
@@ -307,6 +307,108 @@ function TemplateMessageContent({ parsed, time, deliveryStatus }: {
   )
 }
 
+// ========== Media Message Renderer ==========
+
+const MEDIA_TYPES = ['image', 'video', 'audio', 'document'] as const
+
+function getMediaProxyUrl(messageId: string): string {
+  if (typeof window === 'undefined') return ''
+  return `/api/inbox/media?messageId=${encodeURIComponent(messageId)}`
+}
+
+function MediaContent({
+  message,
+  borderRadius,
+}: {
+  message: InboxMessage
+  borderRadius: string
+}) {
+  const { id, message_type, media_url, content } = message
+  const [imgError, setImgError] = useState(false)
+  const proxyUrl = media_url ? getMediaProxyUrl(id) : null
+
+  const mt = message_type
+  if (mt !== 'image' && mt !== 'video' && mt !== 'audio' && mt !== 'document')
+    return null
+
+  if (mt === 'image' && proxyUrl && !imgError) {
+    return (
+      <div className={cn('overflow-hidden', borderRadius)}>
+        <img
+          src={proxyUrl}
+          alt={content || 'Imagem'}
+          className="max-w-full max-h-[280px] object-contain block"
+          onError={() => setImgError(true)}
+        />
+        {content && (
+          <p className="mt-2 text-sm whitespace-pre-wrap break-words">
+            <WhatsAppFormattedText text={content} />
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (mt === 'video' && proxyUrl) {
+    return (
+      <div className={cn('overflow-hidden', borderRadius)}>
+        <video
+          src={proxyUrl}
+          controls
+          className="max-w-full max-h-[280px] rounded"
+          preload="metadata"
+        />
+        {content && (
+          <p className="mt-2 text-sm whitespace-pre-wrap break-words">
+            <WhatsAppFormattedText text={content} />
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (mt === 'audio' && proxyUrl) {
+    return (
+      <div className="space-y-1">
+        <audio src={proxyUrl} controls className="max-w-full" preload="metadata" />
+        {content && (
+          <p className="text-sm whitespace-pre-wrap break-words">
+            <WhatsAppFormattedText text={content} />
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (mt === 'document' && proxyUrl) {
+    const label = content || 'Documento'
+    return (
+      <a
+        href={proxyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition-colors"
+      >
+        <FileText className="h-5 w-5 flex-shrink-0" />
+        <span className="text-sm truncate max-w-[200px]">{label}</span>
+      </a>
+    )
+  }
+
+  // Fallback: media_url missing or image load failed
+  const fallbackLabels: Record<string, string> = {
+    image: '[Imagem]',
+    video: '[Vídeo]',
+    audio: '[Áudio]',
+    document: '[Documento]',
+  }
+  return (
+    <p className="text-sm text-[var(--ds-text-muted)]">
+      {content || fallbackLabels[mt] || '[Mídia]'}
+    </p>
+  )
+}
+
 // Check if message is a handoff/system message
 function isHandoffMessage(content: string): boolean {
   return content.includes('**Transferência') || content.includes('**Motivo:**')
@@ -339,7 +441,15 @@ export const MessageBubble = memo(function MessageBubble({
     created_at,
     ai_sentiment,
     ai_sources,
+    message_type,
+    media_url,
   } = message
+
+  const isMediaMessage =
+    message_type === 'image' ||
+    message_type === 'video' ||
+    message_type === 'audio' ||
+    message_type === 'document'
 
   const isInbound = direction === 'inbound'
   const isAIResponse = !isInbound && (message.ai_response_id || ai_sources)
@@ -439,8 +549,10 @@ export const MessageBubble = memo(function MessageBubble({
             isAIResponse && !isTemplate && 'bg-emerald-700/70 text-emerald-50'
           )}
         >
-          {/* Template message - special rendering */}
-          {isTemplate && parsedTemplate ? (
+          {/* Media message - image, video, audio, document */}
+          {isMediaMessage ? (
+            <MediaContent message={message} borderRadius={getBorderRadius()} />
+          ) : isTemplate && parsedTemplate ? (
             <TemplateMessageContent
               parsed={parsedTemplate}
               time={time}

@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Send, Loader2, Sparkles } from 'lucide-react'
+import { Send, Loader2, Sparkles, Paperclip, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -21,10 +21,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { QuickRepliesPopover } from './QuickRepliesPopover'
+import { inboxService } from '@/services/inboxService'
 import type { InboxQuickReply } from '@/types'
 
 export interface MessageInputProps {
-  onSend: (content: string) => void
+  onSend: (
+    content: string | import('@/services/inboxService').SendMessageParams
+  ) => void
   isSending: boolean
   disabled?: boolean
   placeholder?: string
@@ -54,9 +57,20 @@ export function MessageInput({
   const [suggestionNotes, setSuggestionNotes] = useState<string | null>(null)
   const [isFocused, setIsFocused] = useState(false)
   const [selectedShortcutIndex, setSelectedShortcutIndex] = useState(0)
+  const [pendingFile, setPendingFile] = useState<{
+    file: File
+    previewUrl?: string
+    mediaType: 'image' | 'video' | 'audio' | 'document'
+  } | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const autocompleteRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const wasSendingRef = useRef(false)
+
+  const ACCEPT_MEDIA =
+    'image/jpeg,image/png,image/webp,video/mp4,video/3gpp,audio/mpeg,audio/mp4,audio/ogg,audio/aac,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv'
 
   // Detect shortcut pattern: /word at start or after space
   const shortcutMatch = useMemo(() => {
@@ -105,20 +119,80 @@ export function MessageInput({
     wasSendingRef.current = isSending
   }, [isSending])
 
-  // Handle send
-  const handleSend = useCallback(() => {
+  // Handle file selection
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      const type = file.type
+      const mediaType =
+        type.startsWith('image/')
+          ? 'image'
+          : type.startsWith('video/')
+            ? 'video'
+            : type.startsWith('audio/')
+              ? 'audio'
+              : 'document'
+
+      setUploadError(null)
+      const previewUrl =
+        mediaType === 'image' || mediaType === 'video'
+          ? URL.createObjectURL(file)
+          : undefined
+      setPendingFile({ file, previewUrl, mediaType })
+      e.target.value = ''
+    },
+    []
+  )
+
+  // Clear pending file
+  const clearPendingFile = useCallback(() => {
+    if (pendingFile?.previewUrl) {
+      URL.revokeObjectURL(pendingFile.previewUrl)
+    }
+    setPendingFile(null)
+    setUploadError(null)
+  }, [pendingFile?.previewUrl])
+
+  // Handle send (text or media)
+  const handleSend = useCallback(async () => {
+    if (isSending || disabled || isUploading) return
+
+    if (pendingFile) {
+      setIsUploading(true)
+      setUploadError(null)
+      try {
+        const result = await inboxService.uploadMedia(pendingFile.file)
+        const caption = value.trim() || undefined
+        onSend({
+          content: caption ?? '',
+          message_type: result.mediaType,
+          media_id: result.mediaId,
+          filename: result.mediaType === 'document' ? result.filename : undefined,
+        })
+        clearPendingFile()
+        setValue('')
+        setSuggestionNotes(null)
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : 'Falha no upload')
+      } finally {
+        setIsUploading(false)
+      }
+      return
+    }
+
     const trimmed = value.trim()
-    if (!trimmed || isSending || disabled) return
+    if (!trimmed) return
 
     onSend(trimmed)
     setValue('')
     setSuggestionNotes(null)
 
-    // Reset textarea height (refocus é feito pelo useEffect quando isSending muda para false)
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [value, isSending, disabled, onSend])
+  }, [value, pendingFile, isSending, disabled, isUploading, onSend, clearPendingFile])
 
   // Insert quick reply content (from popover)
   const handleQuickReplySelect = useCallback((content: string) => {
@@ -230,7 +304,11 @@ export function MessageInput({
     }
   }, [value, suggestionNotes])
 
-  const canSend = value.trim().length > 0 && !isSending && !disabled
+  const canSend =
+    (value.trim().length > 0 || !!pendingFile) &&
+    !isSending &&
+    !disabled &&
+    !isUploading
   const canSuggest = showAISuggest && conversationId && !isLoadingSuggestion && !disabled
 
   return (
@@ -239,6 +317,58 @@ export function MessageInput({
       isFocused ? 'border-[var(--ds-border-strong)]' : 'border-[var(--ds-border-subtle)]',
       'bg-[var(--ds-bg-elevated)]'
     )}>
+      {/* Pending file preview */}
+      {pendingFile && (
+        <div className="px-3 py-2 border-b border-[var(--ds-border-subtle)] flex items-center gap-3">
+          {pendingFile.previewUrl && pendingFile.mediaType === 'image' && (
+            <img
+              src={pendingFile.previewUrl}
+              alt=""
+              className="h-14 w-14 object-cover rounded-lg"
+            />
+          )}
+          {pendingFile.previewUrl && pendingFile.mediaType === 'video' && (
+            <video
+              src={pendingFile.previewUrl}
+              className="h-14 w-14 object-cover rounded-lg"
+              muted
+              playsInline
+              preload="metadata"
+            />
+          )}
+          {pendingFile.mediaType !== 'image' && pendingFile.mediaType !== 'video' && (
+            <div className="h-14 w-14 rounded-lg bg-[var(--ds-bg-surface)] flex items-center justify-center">
+              <Paperclip className="h-6 w-6 text-[var(--ds-text-muted)]" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-[var(--ds-text-primary)] truncate">
+              {pendingFile.file.name}
+            </p>
+            <p className="text-[10px] text-[var(--ds-text-muted)]">
+              {pendingFile.mediaType === 'image' && 'Imagem'}
+              {pendingFile.mediaType === 'video' && 'Vídeo'}
+              {pendingFile.mediaType === 'audio' && 'Áudio'}
+              {pendingFile.mediaType === 'document' && 'Documento'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clearPendingFile}
+            disabled={isUploading}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-[var(--ds-text-muted)] hover:text-[var(--ds-text-primary)] hover:bg-[var(--ds-bg-hover)] disabled:opacity-50"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="px-3 py-2 border-b border-red-500/30 bg-red-500/10 text-xs text-red-400">
+          {uploadError}
+        </div>
+      )}
+
       {/* AI Suggestion notes - subtle inline banner */}
       {suggestionNotes && (
         <div className="px-3 py-2 bg-[var(--ds-bg-surface)]/50 border-b border-[var(--ds-border-subtle)]">
@@ -250,6 +380,37 @@ export function MessageInput({
       )}
 
       <div className="flex items-end gap-2 p-3">
+        {/* Attach file button */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPT_MEDIA}
+          onChange={handleFileSelect}
+          className="hidden"
+          aria-hidden
+        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || isSending || isUploading}
+              className={cn(
+                'h-9 w-9 shrink-0 rounded-lg flex items-center justify-center',
+                'transition-all duration-150',
+                disabled || isSending || isUploading
+                  ? 'text-[var(--ds-text-muted)] cursor-not-allowed'
+                  : 'text-[var(--ds-text-secondary)] hover:text-[var(--ds-text-primary)] hover:bg-[var(--ds-bg-hover)]'
+              )}
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            Anexar arquivo
+          </TooltipContent>
+        </Tooltip>
+
         {/* Quick replies */}
         <QuickRepliesPopover
           quickReplies={quickReplies}
@@ -345,8 +506,10 @@ export function MessageInput({
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder={placeholder}
-            disabled={disabled || isSending || isLoadingSuggestion}
+            placeholder={
+              pendingFile ? 'Legenda (opcional)' : placeholder
+            }
+            disabled={disabled || isSending || isLoadingSuggestion || isUploading}
             rows={1}
             className={cn(
               'min-h-[36px] max-h-[100px] resize-none py-2 px-3',
@@ -373,7 +536,7 @@ export function MessageInput({
                   : 'bg-[var(--ds-bg-surface)]/50 text-[var(--ds-text-muted)] cursor-not-allowed'
               )}
             >
-              {isSending ? (
+              {isSending || isUploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Send className="h-4 w-4" />
@@ -381,7 +544,11 @@ export function MessageInput({
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
-            {canSend ? 'Enviar · ⌘↵' : 'Digite uma mensagem'}
+            {canSend
+              ? 'Enviar · ⌘↵'
+              : pendingFile
+                ? 'Enviar arquivo'
+                : 'Digite uma mensagem'}
           </TooltipContent>
         </Tooltip>
       </div>

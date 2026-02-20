@@ -45,7 +45,9 @@ export interface MessagePanelProps {
   onLoadMore: () => void
 
   // Actions
-  onSendMessage: (content: string) => void
+  onSendMessage: (
+    content: string | import('@/services/inboxService').SendMessageParams
+  ) => void
   onModeToggle: () => void
   onClose: () => void
   onReopen: () => void

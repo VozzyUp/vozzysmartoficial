@@ -107,17 +107,47 @@ export async function listMessages(
   return getMessagesByConversation(conversationId, filters)
 }
 
+export type SendMessageMessageType =
+  | 'text'
+  | 'template'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+
+export interface SendMessageParams {
+  content: string
+  message_type?: SendMessageMessageType
+  template_name?: string
+  template_params?: Record<string, string[]>
+  media_id?: string
+  media_url?: string
+  filename?: string
+}
+
 /**
  * Send a message to a conversation
  * This handles both persisting the message and sending via WhatsApp
  */
 export async function sendMessage(
   conversationId: string,
-  content: string,
-  messageType: 'text' | 'template' = 'text',
-  templateName?: string,
-  templateParams?: Record<string, string[]>
+  params: string | SendMessageParams
 ): Promise<InboxMessage> {
+  const opts: SendMessageParams =
+    typeof params === 'string'
+      ? { content: params, message_type: 'text' }
+      : {
+          content: params.content,
+          message_type: params.message_type ?? 'text',
+          template_name: params.template_name,
+          template_params: params.template_params,
+          media_id: params.media_id,
+          media_url: params.media_url,
+          filename: params.filename,
+        }
+
+  const { content, message_type, template_name, template_params, media_id, media_url, filename } = opts
+
   // Get conversation to get phone number
   const conversation = await getConversationById(conversationId)
   if (!conversation) {
@@ -134,17 +164,37 @@ export async function sendMessage(
   let whatsappResult: { messageId?: string; error?: string }
 
   try {
-    if (messageType === 'template' && templateName) {
-      // Send template message
+    if (message_type === 'template' && template_name) {
       whatsappResult = await sendWhatsAppMessage({
         to: conversation.phone,
         type: 'template',
-        templateName,
-        templateParams,
+        templateName: template_name,
+        templateParams: template_params,
+        credentials,
+      })
+    } else if (
+      (message_type === 'image' || message_type === 'video' || message_type === 'audio') &&
+      (media_id || media_url)
+    ) {
+      whatsappResult = await sendWhatsAppMessage({
+        to: conversation.phone,
+        type: message_type,
+        mediaId: media_id,
+        mediaUrl: media_url,
+        caption: content || undefined,
+        credentials,
+      })
+    } else if (message_type === 'document' && (media_id || media_url) && filename) {
+      whatsappResult = await sendWhatsAppMessage({
+        to: conversation.phone,
+        type: 'document',
+        mediaId: media_id,
+        mediaUrl: media_url,
+        filename,
+        caption: content || undefined,
         credentials,
       })
     } else {
-      // Send text message
       whatsappResult = await sendWhatsAppMessage({
         to: conversation.phone,
         type: 'text',
@@ -162,15 +212,15 @@ export async function sendMessage(
   const message = await createMessage({
     conversation_id: conversationId,
     direction: 'outbound',
-    content,
-    message_type: messageType,
-    whatsapp_message_id: whatsappResult.messageId,
+    content: content || (message_type !== 'text' ? `[${message_type}]` : ''),
+    message_type: message_type as InboxMessage['message_type'],
+    media_url: null,
+    whatsapp_message_id: whatsappResult.messageId ?? null,
+    delivery_status: whatsappResult.error ? 'failed' : 'pending',
   })
 
-  // Update delivery status based on send result
-  if (whatsappResult.error) {
-    await updateMessageDeliveryStatus(message.id, 'failed')
-  } else if (whatsappResult.messageId) {
+  // Update delivery status on success (pending -> sent)
+  if (!whatsappResult.error && whatsappResult.messageId) {
     await updateMessageDeliveryStatus(whatsappResult.messageId, 'sent')
   }
 

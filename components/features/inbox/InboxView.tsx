@@ -55,7 +55,9 @@ export interface InboxViewProps {
   onLoadMoreMessages: () => void
 
   // Message sending
-  onSendMessage: (content: string) => void
+  onSendMessage: (
+    content: string | import('@/services/inboxService').SendMessageParams
+  ) => void
   isSending: boolean
 
   // Labels

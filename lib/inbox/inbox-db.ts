@@ -430,6 +430,29 @@ export async function createMessage(
 }
 
 /**
+ * Get a single message by ID
+ * Returns null if not found
+ */
+export async function getMessageById(
+  id: string
+): Promise<InboxMessage | null> {
+  const supabase = getClient()
+
+  const { data, error } = await supabase
+    .from('inbox_messages')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null // Not found
+    throw new Error(`Failed to fetch message: ${error.message}`)
+  }
+
+  return data as InboxMessage
+}
+
+/**
  * Find message by WhatsApp message ID
  * Used to check for duplicates before creating
  */

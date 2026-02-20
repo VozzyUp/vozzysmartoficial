@@ -173,16 +173,21 @@ export function useInbox(options: UseInboxOptions = {}) {
   // Handle sending a message
   // Auto-transfers to human mode when operator sends a manual message
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (
+      payload: string | import('@/services/inboxService').SendMessageParams
+    ) => {
       if (!selectedId) return
 
       // Auto-transfer to human mode if currently in bot mode
-      // This prevents bot from responding on top of manual responses
       if (selectedConversation?.mode === 'bot') {
         await conversationMutations.switchMode({ id: selectedId, mode: 'human' })
       }
 
-      await sendMessage({ content, message_type: 'text' })
+      const params =
+        typeof payload === 'string'
+          ? { content: payload, message_type: 'text' as const }
+          : payload
+      await sendMessage(params)
     },
     [selectedId, sendMessage, selectedConversation?.mode, conversationMutations]
   )

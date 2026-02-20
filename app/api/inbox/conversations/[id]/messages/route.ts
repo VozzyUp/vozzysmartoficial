@@ -16,10 +16,15 @@ const querySchema = z.object({
 })
 
 const postSchema = z.object({
-  content: z.string().min(1).max(4096),
-  message_type: z.enum(['text', 'template']).default('text'),
+  content: z.string().max(4096).default(''),
+  message_type: z
+    .enum(['text', 'template', 'image', 'video', 'audio', 'document'])
+    .default('text'),
   template_name: z.string().optional(),
   template_params: z.record(z.string(), z.array(z.string())).optional(),
+  media_id: z.string().optional(),
+  media_url: z.string().url().optional(),
+  filename: z.string().optional(),
 })
 
 interface RouteParams {
@@ -78,7 +83,15 @@ export async function POST(
       )
     }
 
-    const { content, message_type, template_name, template_params } = parsed.data
+    const {
+      content,
+      message_type,
+      template_name,
+      template_params,
+      media_id,
+      media_url,
+      filename,
+    } = parsed.data
 
     // Validate template requirements
     if (message_type === 'template' && !template_name) {
@@ -88,13 +101,53 @@ export async function POST(
       )
     }
 
-    const message = await sendMessage(
-      id,
-      content,
+    // Validate media requirements
+    if (
+      (message_type === 'image' || message_type === 'video' || message_type === 'audio') &&
+      !media_id &&
+      !media_url
+    ) {
+      return NextResponse.json(
+        {
+          error: `media_id or media_url is required when message_type is ${message_type}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (
+      message_type === 'document' &&
+      ((!media_id && !media_url) || !filename)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'media_id or media_url and filename are required when message_type is document',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Validate text/template: content required
+    if (
+      (message_type === 'text' || message_type === 'template') &&
+      !content?.trim()
+    ) {
+      return NextResponse.json(
+        { error: 'content is required for text and template messages' },
+        { status: 400 }
+      )
+    }
+
+    const message = await sendMessage(id, {
+      content: content ?? '',
       message_type,
       template_name,
-      template_params
-    )
+      template_params,
+      media_id,
+      media_url,
+      filename,
+    })
 
     return NextResponse.json(message, { status: 201 })
   } catch (error) {
