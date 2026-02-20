@@ -39,7 +39,6 @@ export function useInbox(options: UseInboxOptions = {}) {
   const [statusFilter, setStatusFilter] = useState<ConversationStatus | null>('open')
   const [modeFilter, setModeFilter] = useState<ConversationMode | null>(null)
   const [labelFilter, setLabelFilter] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
 
   // Selected conversation ID (from URL or state)
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -62,8 +61,9 @@ export function useInbox(options: UseInboxOptions = {}) {
     totalUnread,
     isLoading: isLoadingConversations,
     hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
   } = useConversations({
-    page,
     status: statusFilter ?? undefined,
     mode: modeFilter ?? undefined,
     labelId: labelFilter ?? undefined,
@@ -265,9 +265,9 @@ export function useInbox(options: UseInboxOptions = {}) {
     totalPages,
     totalUnread,
     isLoadingConversations,
-    page,
-    setPage,
     hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
 
     // Selected conversation
     selectedConversationId: selectedId,

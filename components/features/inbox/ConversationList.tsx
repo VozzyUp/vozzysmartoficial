@@ -33,6 +33,10 @@ export interface ConversationListProps {
   onSelect: (id: string) => void
   isLoading: boolean
   totalUnread: number
+  /** Carregar mais conversas (infinite scroll) */
+  hasNextPage?: boolean
+  onLoadMore?: () => void
+  isLoadingMore?: boolean
 
   // Filters
   labels: InboxLabel[]
@@ -52,6 +56,9 @@ export function ConversationList({
   onSelect,
   isLoading,
   totalUnread,
+  hasNextPage,
+  onLoadMore,
+  isLoadingMore,
   labels,
   search,
   onSearchChange,
@@ -272,7 +279,7 @@ export function ConversationList({
             )}
           </div>
         ) : (
-          // Conversation items
+          // Conversation items + Load more
           <div className="px-1.5 py-0.5">
             {conversations.map((conversation) => (
               <ConversationItem
@@ -282,6 +289,17 @@ export function ConversationList({
                 onClick={() => onSelect(conversation.id)}
               />
             ))}
+            {hasNextPage && (
+              <div className="px-2 py-3 flex justify-center">
+                <button
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                  className="text-xs text-[var(--ds-text-muted)] hover:text-[var(--ds-text-secondary)] px-3 py-1.5 rounded-lg hover:bg-[var(--ds-bg-hover)] transition-colors disabled:opacity-50"
+                >
+                  {isLoadingMore ? 'Carregando...' : 'Carregar mais'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

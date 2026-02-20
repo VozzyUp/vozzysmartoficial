@@ -1,19 +1,20 @@
 /**
  * T028: useConversations - List conversations with filters
- * Provides conversation list with filtering, search, and real-time updates
+ * Provides conversation list with filtering, search, infinite scroll, and real-time updates
  */
 
-import { useMemo, useCallback } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRealtimeQuery } from './useRealtimeQuery'
+import { useMemo, useCallback, useEffect, useRef } from 'react'
+import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import {
   inboxService,
   type ConversationListParams,
   type ConversationListResult,
 } from '@/services/inboxService'
 import type { InboxConversation, ConversationStatus, ConversationMode } from '@/types'
-import { CACHE, REALTIME } from '@/lib/constants'
+import { CACHE, REALTIME, PAGINATION } from '@/lib/constants'
 import { getConversationQueryKey } from './useConversation'
+import { createRealtimeChannel, subscribeToTable, activateChannel, removeChannel } from '@/lib/supabase-realtime'
+import { debounce } from '@/lib/utils'
 
 // Default timeout: 0 = nunca expira (can be overridden by passing timeoutMs to switchMode)
 const DEFAULT_HUMAN_MODE_TIMEOUT_MS = 0 // 0 = nunca expira
@@ -41,80 +42,106 @@ export interface UseConversationsParams {
   initialData?: InboxConversation[]
 }
 
+const CONVERSATIONS_PAGE_SIZE = PAGINATION.inboxConversations
+
 export function useConversations(params: UseConversationsParams = {}) {
   const queryClient = useQueryClient()
-  const { page = 1, limit = 20, status, mode, labelId, search, initialData } = params
+  const channelRef = useRef<ReturnType<typeof createRealtimeChannel> | null>(null)
+  const { limit = CONVERSATIONS_PAGE_SIZE, status, mode, labelId, search, initialData } = params
 
-  const queryParams: ConversationListParams = useMemo(
-    () => ({ page, limit, status, mode, labelId, search }),
-    [page, limit, status, mode, labelId, search]
+  const queryParams: Omit<ConversationListParams, 'page'> = useMemo(
+    () => ({ limit, status, mode, labelId, search }),
+    [limit, status, mode, labelId, search]
   )
 
-  const queryKey = getConversationsQueryKey(queryParams)
+  const queryKey = [...CONVERSATIONS_LIST_KEY, 'infinite', queryParams]
 
-  // Se temos initialData e estamos na página 1 sem filtros, usamos como dados iniciais
-  const isFirstPageNoFilters = page === 1 && !status && !mode && !labelId && !search
-  const queryInitialData = isFirstPageNoFilters && initialData
-    ? {
-        conversations: initialData,
-        total: initialData.length,
-        page: 1,
-        limit,
-        totalPages: 1
-      }
-    : undefined
-
-  // Query with real-time subscription
-  const query = useRealtimeQuery<ConversationListResult>({
+  const infiniteQuery = useInfiniteQuery({
     queryKey,
-    queryFn: () => inboxService.listConversations(queryParams),
-    initialData: queryInitialData,
-    staleTime: CACHE.inbox, // 30s - user-facing list with realtime updates
+    queryFn: async ({ pageParam = 1 }) => {
+      return inboxService.listConversations({ ...queryParams, page: pageParam })
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page < lastPage.totalPages) return lastPage.page + 1
+      return undefined
+    },
+    initialData: initialData?.length
+      ? {
+          pages: [
+            {
+              conversations: initialData,
+              total: initialData.length,
+              page: 1,
+              totalPages: 1,
+            } as ConversationListResult,
+          ],
+          pageParams: [1],
+        }
+      : undefined,
+    staleTime: CACHE.inbox,
     refetchOnWindowFocus: false,
-    // Real-time configuration
-    table: 'inbox_conversations',
-    events: ['INSERT', 'UPDATE', 'DELETE'],
-    debounceMs: REALTIME.debounceDefault,
   })
 
-  // Computed values
-  const conversations = query.data?.conversations ?? []
-  const total = query.data?.total ?? 0
-  const totalPages = query.data?.totalPages ?? 1
-  const hasNextPage = page < totalPages
-  const hasPreviousPage = page > 1
+  // Flatten all pages into single list
+  const conversations = useMemo(
+    () => infiniteQuery.data?.pages.flatMap((p) => p.conversations) ?? [],
+    [infiniteQuery.data?.pages]
+  )
+  const lastPage = infiniteQuery.data?.pages?.at(-1)
+  const total = lastPage?.total ?? 0
+  const totalPages = lastPage?.totalPages ?? 1
+  const hasNextPage = infiniteQuery.hasNextPage ?? false
 
-  // Total unread count across all conversations
   const totalUnread = useMemo(
     () => conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0),
     [conversations]
   )
 
-  // Invalidation helper
+  // Realtime subscription - invalidate on INSERT/UPDATE/DELETE
+  const debouncedInvalidate = useMemo(
+    () =>
+      debounce(() => {
+        queryClient.invalidateQueries({ queryKey: CONVERSATIONS_LIST_KEY })
+      }, REALTIME.debounceDefault),
+    [queryClient]
+  )
+
+  useEffect(() => {
+    const channel = createRealtimeChannel(`inbox-convs-${Date.now()}`)
+    if (!channel) return
+    channelRef.current = channel
+    const handler = () => debouncedInvalidate()
+    subscribeToTable(channel, 'inbox_conversations', 'INSERT', handler)
+    subscribeToTable(channel, 'inbox_conversations', 'UPDATE', handler)
+    subscribeToTable(channel, 'inbox_conversations', 'DELETE', handler)
+    activateChannel(channel).catch(() => {})
+    return () => {
+      debouncedInvalidate.cancel?.()
+      if (channelRef.current) {
+        removeChannel(channelRef.current)
+        channelRef.current = null
+      }
+    }
+  }, [debouncedInvalidate])
+
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: CONVERSATIONS_LIST_KEY })
   }, [queryClient])
 
   return {
-    // Data
     conversations,
     total,
     totalPages,
     totalUnread,
-
-    // Pagination
-    page,
     hasNextPage,
-    hasPreviousPage,
-
-    // Query state
-    isLoading: query.isLoading,
-    isRefetching: query.isRefetching,
-    error: query.error,
-
-    // Actions
+    fetchNextPage: infiniteQuery.fetchNextPage,
+    isFetchingNextPage: infiniteQuery.isFetchingNextPage,
+    isLoading: infiniteQuery.isLoading,
+    isRefetching: infiniteQuery.isRefetching,
+    error: infiniteQuery.error,
     invalidate,
-    refetch: query.refetch,
+    refetch: infiniteQuery.refetch,
   }
 }
 

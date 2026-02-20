@@ -8,6 +8,8 @@
 // ============================================================================
 
 export const PAGINATION = {
+  /** Items per page for inbox conversations list */
+  inboxConversations: 50,
   /** Items per page for campaigns list */
   campaigns: 20,
   /** Items per page for contacts list */

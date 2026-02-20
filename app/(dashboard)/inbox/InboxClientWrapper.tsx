@@ -34,6 +34,9 @@ export function InboxClientWrapper({ initialData, initialConversationId }: Inbox
         conversations={inbox.conversations}
         isLoadingConversations={inbox.isLoadingConversations && !initialData}
         totalUnread={inbox.totalUnread}
+        hasNextPage={inbox.hasNextPage}
+        onLoadMoreConversations={inbox.fetchNextPage}
+        isLoadingMoreConversations={inbox.isFetchingNextPage}
         // Selected conversation
         selectedConversationId={inbox.selectedConversationId}
         onSelectConversation={inbox.onSelectConversation}

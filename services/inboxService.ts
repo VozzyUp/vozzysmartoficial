@@ -81,7 +81,7 @@ async function listConversations(params: ConversationListParams = {}): Promise<C
   if (params.limit) searchParams.set('limit', String(params.limit))
   if (params.status) searchParams.set('status', params.status)
   if (params.mode) searchParams.set('mode', params.mode)
-  if (params.labelId) searchParams.set('label_id', params.labelId)
+  if (params.labelId) searchParams.set('label', params.labelId)
   if (params.search) searchParams.set('search', params.search)
 
   const response = await fetch(`/api/inbox/conversations?${searchParams.toString()}`)
