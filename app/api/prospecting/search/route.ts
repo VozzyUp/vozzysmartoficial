@@ -129,33 +129,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Construir query
-    const localizacaoParaQuery = localizacao.includes(',')
-      ? localizacao.split(',')[0].trim() // Só o bairro
-      : localizacao // Cidade completa
-
-    // Construir query: se tem variação, adiciona antes do nicho
-    // Ex: "hamburgueria Lanchonete em São Paulo" ou "Lanchonete em São Paulo"
+    // Construir query seguindo o formato do exemplo:
+    // "hamburgueria Lanchonete em São Paulo em Mooca São Paulo"
+    // Ou seja: variação + nicho + " em " + localização completa
+    
+    const localizacaoParaQuery = localizacao.trim()
+    
+    // Construir query: variação + nicho + " em " + localização
     let query = ''
     if (variacao && variacao.trim()) {
-      // Se variação não contém palavras-chave de localização, adiciona antes do nicho
       const variacaoLower = variacao.toLowerCase().trim()
+      // Ignorar variações que são instruções de localização (raio, km, etc)
       if (!variacaoLower.includes('raio') && !variacaoLower.includes('km')) {
         query = `${variacao} ${config.nicho}`
       } else {
-        // Variações como "raio de 10km" não devem entrar na query
         query = config.nicho
       }
     } else {
       query = config.nicho
     }
+    
+    // Adicionar localização: " em " + localização completa
     query += ` em ${localizacaoParaQuery}`
     
-    console.log('[Prospecting Search] Query construída:', query.trim())
+    const queryFinal = query.trim()
+    console.log('[Prospecting Search] Query construída:', {
+      query: queryFinal,
+      queryEncoded: encodeURIComponent(queryFinal),
+      variacao,
+      nicho: config.nicho,
+      localizacao: localizacaoParaQuery,
+    })
 
     // Buscar coordenadas
+    console.log('[Prospecting Search] Buscando coordenadas para:', localizacao)
     const coords = await getCoordinates(localizacao)
     if (!coords) {
+      console.error('[Prospecting Search] Falha ao obter coordenadas para:', localizacao)
       return NextResponse.json(
         { error: `Não foi possível encontrar coordenadas para: ${localizacao}` },
         { status: 400 }
@@ -163,10 +173,21 @@ export async function POST(request: NextRequest) {
     }
 
     const ll = formatCoordinatesForHasData(coords)
+    console.log('[Prospecting Search] Coordenadas formatadas:', {
+      coords,
+      ll,
+      formatoEsperado: '@lat,lon,zoomz',
+    })
 
     // Buscar dados do Google Maps
     const start = pagina * 20
-    console.log('[Prospecting Search] Buscando:', { query: query.trim(), ll, start, hasApiKey: !!hasdataApiKey })
+    console.log('[Prospecting Search] Parâmetros finais da busca:', {
+      query: query.trim(),
+      queryEncoded: encodeURIComponent(query.trim()),
+      ll,
+      start,
+      hasApiKey: !!hasdataApiKey,
+    })
     
     const mapsData = await fetchGoogleMapsData(
       {

@@ -67,7 +67,18 @@ export default function ProspectingPage() {
         return
       }
       setHasdataKeyConfigured(true)
-      toast.success(data.message || 'Chave salva com sucesso!')
+      
+      // Mostrar mensagem de sucesso com informações sobre o redeploy
+      if (data.redeployTriggered) {
+        toast.success('Chave salva! Redeploy iniciado. Aguarde alguns minutos para o sistema reconhecer a nova chave.', {
+          duration: 6000,
+        })
+      } else {
+        toast.success(data.message || 'Chave salva com sucesso!', {
+          duration: 5000,
+        })
+      }
+      
       setHasdataApiKey('')
     } catch {
       toast.error('Erro ao salvar chave')

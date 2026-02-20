@@ -22,8 +22,11 @@ export interface GoogleMapsResult {
 }
 
 export interface GoogleMapsResponse {
-  localResults?: GoogleMapsResult[]
+  localResults?: GoogleMapsResult[] | GoogleMapsResult
   placeResults?: GoogleMapsResult
+  results?: GoogleMapsResult[] // Algumas APIs retornam em "results"
+  data?: GoogleMapsResult[] // Outras retornam em "data"
+  [key: string]: any // Permitir outros campos
 }
 
 export interface Coordinates {
@@ -37,6 +40,8 @@ export interface Coordinates {
 export async function getCoordinates(location: string): Promise<Coordinates | null> {
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&limit=1`
+    console.log('[getCoordinates] Buscando coordenadas para:', location)
+    console.log('[getCoordinates] URL Nominatim:', url)
     
     const response = await fetch(url, {
       headers: {
@@ -49,8 +54,13 @@ export async function getCoordinates(location: string): Promise<Coordinates | nu
     }
 
     const data = await response.json()
+    console.log('[getCoordinates] Resposta Nominatim:', {
+      resultsCount: Array.isArray(data) ? data.length : 0,
+      firstResult: Array.isArray(data) && data.length > 0 ? data[0] : null,
+    })
 
     if (!Array.isArray(data) || data.length === 0) {
+      console.warn('[getCoordinates] Nenhum resultado encontrado para:', location)
       return null
     }
 
@@ -59,9 +69,11 @@ export async function getCoordinates(location: string): Promise<Coordinates | nu
     const lon = parseFloat(result.lon)
 
     if (isNaN(lat) || isNaN(lon)) {
+      console.error('[getCoordinates] Coordenadas inválidas:', { lat: result.lat, lon: result.lon })
       return null
     }
 
+    console.log('[getCoordinates] Coordenadas obtidas:', { lat, lon })
     return { lat, lon }
   } catch (error) {
     console.error('[getCoordinates] Erro:', error)
@@ -95,7 +107,14 @@ export async function fetchGoogleMapsData(
     url.searchParams.set('start', start.toString())
   }
 
-  console.log('[fetchGoogleMapsData] URL:', url.toString())
+  console.log('[fetchGoogleMapsData] Parâmetros:', {
+    query,
+    ll,
+    start,
+    queryEncoded: encodeURIComponent(query),
+    llFormatted: ll,
+  })
+  console.log('[fetchGoogleMapsData] URL completa:', url.toString())
   console.log('[fetchGoogleMapsData] Headers:', { 'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING' })
 
   const response = await fetch(url.toString(), {
@@ -112,12 +131,23 @@ export async function fetchGoogleMapsData(
   }
 
   const data = await response.json()
-  console.log('[fetchGoogleMapsData] Resposta recebida:', {
+  console.log('[fetchGoogleMapsData] Resposta recebida (raw):', JSON.stringify(data, null, 2))
+  console.log('[fetchGoogleMapsData] Resposta recebida (resumo):', {
     hasLocalResults: !!data.localResults,
-    localResultsLength: Array.isArray(data.localResults) ? data.localResults.length : 0,
+    localResultsType: typeof data.localResults,
+    localResultsLength: Array.isArray(data.localResults) ? data.localResults.length : 'N/A',
     hasPlaceResults: !!data.placeResults,
     keys: Object.keys(data),
+    statusCode: response.status,
   })
+  
+  // Verificar se há estrutura diferente na resposta
+  if (data.results && Array.isArray(data.results)) {
+    console.log('[fetchGoogleMapsData] Encontrado campo "results" com', data.results.length, 'itens')
+  }
+  if (data.data && Array.isArray(data.data)) {
+    console.log('[fetchGoogleMapsData] Encontrado campo "data" com', data.data.length, 'itens')
+  }
   
   return data as GoogleMapsResponse
 }
@@ -154,15 +184,40 @@ export function processProspectingResults(data: GoogleMapsResponse): GoogleMapsR
 
   // Verificar se há outros campos que podem conter resultados
   const dataAny = data as any
+  
+  // Verificar campo "results" (formato alternativo)
   if (dataAny.results && Array.isArray(dataAny.results)) {
     console.log('[processProspectingResults] Encontrado campo "results" com', dataAny.results.length, 'itens')
     results.push(...dataAny.results)
   }
+  
+  // Verificar campo "data" (formato alternativo)
   if (dataAny.data && Array.isArray(dataAny.data)) {
     console.log('[processProspectingResults] Encontrado campo "data" com', dataAny.data.length, 'itens')
     results.push(...dataAny.data)
   }
+  
+  // Verificar se há um campo com array de objetos que parecem resultados
+  for (const key of Object.keys(dataAny)) {
+    if (key !== 'localResults' && key !== 'placeResults' && key !== 'results' && key !== 'data') {
+      const value = dataAny[key]
+      if (Array.isArray(value) && value.length > 0) {
+        // Verificar se parece ser um array de resultados (tem propriedades como title, phone, etc)
+        const firstItem = value[0]
+        if (firstItem && typeof firstItem === 'object' && (firstItem.title || firstItem.phone || firstItem.address)) {
+          console.log(`[processProspectingResults] Encontrado campo "${key}" com ${value.length} itens que parecem resultados`)
+          results.push(...value)
+        }
+      }
+    }
+  }
 
   console.log('[processProspectingResults] Total de resultados processados:', results.length)
+  
+  if (results.length === 0) {
+    console.warn('[processProspectingResults] ATENÇÃO: Nenhum resultado encontrado na resposta da API')
+    console.warn('[processProspectingResults] Estrutura completa da resposta:', JSON.stringify(data, null, 2))
+  }
+  
   return results
 }
