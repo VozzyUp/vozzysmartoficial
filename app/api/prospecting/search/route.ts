@@ -97,15 +97,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolver chave HasData: env -> settings (cache) -> config
-    let hasdataApiKey: string =
-      process.env.HASDATA_API_KEY ||
-      (await settingsDb.get('hasdata_api_key')) ||
-      config.hasdata_api_key ||
-      ''
+    const envKey = process.env.HASDATA_API_KEY
+    const settingsKey = await settingsDb.get('hasdata_api_key')
+    const configKey = config.hasdata_api_key
+    
+    let hasdataApiKey: string = envKey || settingsKey || configKey || ''
+
+    console.log('[Prospecting Search] Resolução de API Key:', {
+      temEnvKey: !!envKey,
+      temSettingsKey: !!settingsKey,
+      temConfigKey: !!configKey,
+      temApiKeyFinal: !!hasdataApiKey,
+    })
 
     if (!hasdataApiKey) {
       return NextResponse.json(
-        { error: 'Chave API HasData não configurada. Configure em Modelo de busca.' },
+        { error: 'Chave API HasData não configurada. Configure em Modelo de busca ou nas configurações.' },
         { status: 400 }
       )
     }
@@ -127,8 +134,24 @@ export async function POST(request: NextRequest) {
       ? localizacao.split(',')[0].trim() // Só o bairro
       : localizacao // Cidade completa
 
-    let query = variacao ? `${variacao} ${config.nicho}` : config.nicho
+    // Construir query: se tem variação, adiciona antes do nicho
+    // Ex: "hamburgueria Lanchonete em São Paulo" ou "Lanchonete em São Paulo"
+    let query = ''
+    if (variacao && variacao.trim()) {
+      // Se variação não contém palavras-chave de localização, adiciona antes do nicho
+      const variacaoLower = variacao.toLowerCase().trim()
+      if (!variacaoLower.includes('raio') && !variacaoLower.includes('km')) {
+        query = `${variacao} ${config.nicho}`
+      } else {
+        // Variações como "raio de 10km" não devem entrar na query
+        query = config.nicho
+      }
+    } else {
+      query = config.nicho
+    }
     query += ` em ${localizacaoParaQuery}`
+    
+    console.log('[Prospecting Search] Query construída:', query.trim())
 
     // Buscar coordenadas
     const coords = await getCoordinates(localizacao)
@@ -143,6 +166,8 @@ export async function POST(request: NextRequest) {
 
     // Buscar dados do Google Maps
     const start = pagina * 20
+    console.log('[Prospecting Search] Buscando:', { query: query.trim(), ll, start, hasApiKey: !!hasdataApiKey })
+    
     const mapsData = await fetchGoogleMapsData(
       {
         query: query.trim(),
@@ -152,25 +177,79 @@ export async function POST(request: NextRequest) {
       hasdataApiKey
     )
 
+    console.log('[Prospecting Search] Dados recebidos do HasData:', {
+      hasLocalResults: !!mapsData.localResults,
+      localResultsCount: mapsData.localResults?.length || 0,
+      hasPlaceResults: !!mapsData.placeResults,
+    })
+
     // Processar resultados
     const rawResults = processProspectingResults(mapsData)
+    console.log('[Prospecting Search] Resultados processados:', rawResults.length)
+
+    if (rawResults.length === 0) {
+      console.warn('[Prospecting Search] Nenhum resultado retornado pela API HasData')
+      return NextResponse.json({
+        results: [],
+        total: 0,
+        novos: 0,
+        duplicados: 0,
+      })
+    }
 
     // Converter para formato interno
-    const processedResults = rawResults.map(item => ({
-      empresa: (item.title || '').trim(),
-      telefone: (item.phone || '').replace(/\D/g, ''), // Remove caracteres não numéricos
-      endereco: (item.address || '').trim(),
-      website: (item.website || '').trim(),
-      categoria: (item.type || '').trim(),
-      avaliacao: item.rating || null,
-      total_avaliacoes: item.reviews || null,
-      email: null as string | null, // Email não vem do Google Maps
-    }))
+    const processedResults = rawResults.map((item, idx) => {
+      const telefoneRaw = item.phone || ''
+      const telefoneLimpo = telefoneRaw.replace(/\D/g, '')
+      
+      console.log(`[Prospecting Search] Item ${idx}:`, {
+        empresa: item.title,
+        telefoneRaw,
+        telefoneLimpo,
+        temTelefone: !!telefoneLimpo,
+      })
+
+      return {
+        empresa: (item.title || '').trim(),
+        telefone: telefoneLimpo,
+        endereco: (item.address || '').trim(),
+        website: (item.website || '').trim(),
+        categoria: (item.type || '').trim(),
+        avaliacao: item.rating || null,
+        total_avaliacoes: item.reviews || null,
+        email: null as string | null, // Email não vem do Google Maps
+      }
+    })
+
+    console.log('[Prospecting Search] Processados:', {
+      total: processedResults.length,
+      comTelefone: processedResults.filter(r => r.telefone).length,
+    })
+
+    // Se nenhum resultado tem telefone, retornar vazio com aviso
+    const resultadosComTelefone = processedResults.filter(r => r.telefone && r.telefone.trim())
+    if (resultadosComTelefone.length === 0) {
+      console.warn('[Prospecting Search] Nenhum resultado possui telefone')
+      return NextResponse.json({
+        results: [],
+        total: 0,
+        novos: 0,
+        duplicados: 0,
+        warning: 'Nenhum resultado encontrado possui telefone válido',
+      })
+    }
 
     // Filtrar apenas telefones válidos para WhatsApp
-    const validPhones = filterValidWhatsAppPhones(
-      processedResults.map(r => r.telefone).filter(Boolean)
-    )
+    const telefonesParaValidar = resultadosComTelefone.map(r => r.telefone)
+    console.log('[Prospecting Search] Telefones para validar:', telefonesParaValidar.length)
+    
+    const validPhones = filterValidWhatsAppPhones(telefonesParaValidar)
+
+    console.log('[Prospecting Search] Telefones validados:', {
+      total: validPhones.length,
+      validos: validPhones.filter(p => p.isValid && p.isMobile).length,
+      invalidos: validPhones.filter(p => !p.isValid || !p.isMobile).length,
+    })
 
     // Criar mapa de telefones válidos
     const validPhonesMap = new Map<string, boolean>()
@@ -183,9 +262,17 @@ export async function POST(request: NextRequest) {
     // Filtrar resultados com telefones válidos e normalizar
     const filteredResults = processedResults
       .filter(r => {
-        if (!r.telefone) return false
+        if (!r.telefone || !r.telefone.trim()) return false
         const phoneData = validPhones.find(p => p.original === r.telefone)
-        return phoneData?.isValid && phoneData?.isMobile && phoneData.normalized
+        const isValid = phoneData?.isValid && phoneData?.isMobile && phoneData.normalized
+        if (!isValid && phoneData) {
+          console.log('[Prospecting Search] Resultado filtrado:', {
+            empresa: r.empresa,
+            telefone: r.telefone,
+            motivo: phoneData.error,
+          })
+        }
+        return isValid
       })
       .map(r => {
         const phoneData = validPhones.find(p => p.original === r.telefone)
@@ -194,6 +281,11 @@ export async function POST(request: NextRequest) {
           telefone: phoneData?.normalized || r.telefone,
         }
       })
+
+    console.log('[Prospecting Search] Após filtro WhatsApp:', {
+      total: filteredResults.length,
+      empresas: filteredResults.map(r => r.empresa),
+    })
 
     // Remover duplicatas dentro do próprio resultado
     const uniqueResults: typeof filteredResults = []
@@ -215,6 +307,24 @@ export async function POST(request: NextRequest) {
 
     const novos = finalResults.filter(r => !r.isDuplicate).length
     const duplicados = finalResults.filter(r => r.isDuplicate).length
+
+    console.log('[Prospecting Search] Resultado final:', {
+      total: finalResults.length,
+      novos,
+      duplicados,
+      empresas: finalResults.map(r => r.empresa),
+    })
+
+    // Se não há resultados após todos os filtros, adicionar informação de debug
+    if (finalResults.length === 0) {
+      console.warn('[Prospecting Search] Nenhum resultado após filtros:', {
+        rawResultsCount: rawResults.length,
+        processedCount: processedResults.length,
+        validPhonesCount: validPhones.filter(p => p.isValid && p.isMobile).length,
+        filteredCount: filteredResults.length,
+        uniqueCount: uniqueResults.length,
+      })
+    }
 
     const response: SearchResponse = {
       results: finalResults,

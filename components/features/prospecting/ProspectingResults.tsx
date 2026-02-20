@@ -66,9 +66,17 @@ export const ProspectingResults: React.FC<ProspectingResultsProps> = ({
   if (results.length === 0) {
     return (
       <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
-        <p className="text-center text-[var(--ds-text-muted)]">
-          Nenhum resultado encontrado. Execute uma busca primeiro.
-        </p>
+        <div className="space-y-2">
+          <p className="text-center text-[var(--ds-text-muted)]">
+            Nenhum resultado encontrado.
+          </p>
+          <p className="text-center text-xs text-[var(--ds-text-muted)]">
+            Possíveis causas: nenhum resultado retornado pela API, telefones inválidos ou apenas números fixos (WhatsApp requer celulares).
+          </p>
+          <p className="text-center text-xs text-[var(--ds-text-muted)] mt-2">
+            Verifique os logs do console do navegador (F12) para mais detalhes.
+          </p>
+        </div>
       </Container>
     )
   }

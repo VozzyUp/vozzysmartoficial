@@ -95,6 +95,9 @@ export async function fetchGoogleMapsData(
     url.searchParams.set('start', start.toString())
   }
 
+  console.log('[fetchGoogleMapsData] URL:', url.toString())
+  console.log('[fetchGoogleMapsData] Headers:', { 'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING' })
+
   const response = await fetch(url.toString(), {
     headers: {
       'x-api-key': apiKey,
@@ -104,10 +107,18 @@ export async function fetchGoogleMapsData(
 
   if (!response.ok) {
     const errorText = await response.text()
+    console.error('[fetchGoogleMapsData] Erro na resposta:', response.status, errorText)
     throw new Error(`HasData API error (${response.status}): ${errorText}`)
   }
 
   const data = await response.json()
+  console.log('[fetchGoogleMapsData] Resposta recebida:', {
+    hasLocalResults: !!data.localResults,
+    localResultsLength: Array.isArray(data.localResults) ? data.localResults.length : 0,
+    hasPlaceResults: !!data.placeResults,
+    keys: Object.keys(data),
+  })
+  
   return data as GoogleMapsResponse
 }
 
@@ -117,15 +128,41 @@ export async function fetchGoogleMapsData(
 export function processProspectingResults(data: GoogleMapsResponse): GoogleMapsResult[] {
   const results: GoogleMapsResult[] = []
 
+  console.log('[processProspectingResults] Estrutura dos dados:', {
+    hasLocalResults: !!data.localResults,
+    localResultsType: Array.isArray(data.localResults) ? 'array' : typeof data.localResults,
+    localResultsLength: Array.isArray(data.localResults) ? data.localResults.length : 'N/A',
+    hasPlaceResults: !!data.placeResults,
+    allKeys: Object.keys(data),
+  })
+
   // Processar localResults (array de resultados)
   if (data.localResults && Array.isArray(data.localResults)) {
+    console.log('[processProspectingResults] Adicionando', data.localResults.length, 'resultados de localResults')
     results.push(...data.localResults)
+  } else if (data.localResults && typeof data.localResults === 'object') {
+    // Pode ser um objeto único ao invés de array
+    console.log('[processProspectingResults] localResults é objeto único, convertendo')
+    results.push(data.localResults as GoogleMapsResult)
   }
 
   // Processar placeResults (resultado único)
   if (data.placeResults) {
+    console.log('[processProspectingResults] Adicionando placeResults')
     results.push(data.placeResults)
   }
 
+  // Verificar se há outros campos que podem conter resultados
+  const dataAny = data as any
+  if (dataAny.results && Array.isArray(dataAny.results)) {
+    console.log('[processProspectingResults] Encontrado campo "results" com', dataAny.results.length, 'itens')
+    results.push(...dataAny.results)
+  }
+  if (dataAny.data && Array.isArray(dataAny.data)) {
+    console.log('[processProspectingResults] Encontrado campo "data" com', dataAny.data.length, 'itens')
+    results.push(...dataAny.data)
+  }
+
+  console.log('[processProspectingResults] Total de resultados processados:', results.length)
   return results
 }

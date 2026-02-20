@@ -20,16 +20,26 @@ export interface ProcessedPhone {
 export function filterValidWhatsAppPhones(phones: string[]): ProcessedPhone[] {
   const processed: ProcessedPhone[] = []
 
+  console.log('[filterValidWhatsAppPhones] Processando', phones.length, 'telefones')
+
   for (const phone of phones) {
     if (!phone || typeof phone !== 'string') {
+      console.log('[filterValidWhatsAppPhones] Telefone inválido (não string):', phone)
       continue
     }
 
-    const normalized = normalizePhoneNumber(phone.trim())
+    const phoneTrimmed = phone.trim()
+    if (!phoneTrimmed) {
+      console.log('[filterValidWhatsAppPhones] Telefone vazio')
+      continue
+    }
+
+    const normalized = normalizePhoneNumber(phoneTrimmed)
     
     if (!normalized) {
+      console.log('[filterValidWhatsAppPhones] Falha ao normalizar:', phoneTrimmed)
       processed.push({
-        original: phone,
+        original: phoneTrimmed,
         normalized: '',
         isValid: false,
         isMobile: false,
@@ -41,8 +51,9 @@ export function filterValidWhatsAppPhones(phones: string[]): ProcessedPhone[] {
     const validation = validatePhoneNumber(normalized)
 
     if (!validation.isValid) {
+      console.log('[filterValidWhatsAppPhones] Telefone inválido:', phoneTrimmed, '->', normalized, 'Erro:', validation.error)
       processed.push({
-        original: phone,
+        original: phoneTrimmed,
         normalized,
         isValid: false,
         isMobile: false,
@@ -56,8 +67,9 @@ export function filterValidWhatsAppPhones(phones: string[]): ProcessedPhone[] {
                      validation.metadata?.type === 'FIXED_LINE_OR_MOBILE'
 
     if (!isMobile) {
+      console.log('[filterValidWhatsAppPhones] Não é celular:', phoneTrimmed, '->', normalized, 'Tipo:', validation.metadata?.type)
       processed.push({
-        original: phone,
+        original: phoneTrimmed,
         normalized,
         isValid: false,
         isMobile: false,
@@ -66,13 +78,21 @@ export function filterValidWhatsAppPhones(phones: string[]): ProcessedPhone[] {
       continue
     }
 
+    console.log('[filterValidWhatsAppPhones] Telefone válido:', phoneTrimmed, '->', normalized)
     processed.push({
-      original: phone,
+      original: phoneTrimmed,
       normalized,
       isValid: true,
       isMobile: true,
     })
   }
+
+  const validCount = processed.filter(p => p.isValid && p.isMobile).length
+  console.log('[filterValidWhatsAppPhones] Resultado:', {
+    total: processed.length,
+    validos: validCount,
+    invalidos: processed.length - validCount,
+  })
 
   return processed
 }

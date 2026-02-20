@@ -112,16 +112,25 @@ export const prospectingService = {
     variacao?: string
     pagina?: number
   }): Promise<ProspectingSearchResponse> => {
+    console.log('[prospectingService.search] Chamando API com params:', params)
     const response = await fetch('/api/prospecting/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     })
+    
+    const responseData = await response.json()
+    console.log('[prospectingService.search] Resposta da API:', {
+      ok: response.ok,
+      status: response.status,
+      data: responseData,
+    })
+    
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Falha ao buscar dados')
+      throw new Error(responseData.error || 'Falha ao buscar dados')
     }
-    return response.json()
+    
+    return responseData
   },
 
   /**

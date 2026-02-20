@@ -120,9 +120,23 @@ export default function ProspectingPage() {
     variacao?: string
     pagina?: number
   }) => {
-    const result = await searchMutation.mutateAsync(params)
-    setSearchResults(result)
-    setActiveTab('results')
+    try {
+      console.log('[Prospecting Page] Iniciando busca com params:', params)
+      const result = await searchMutation.mutateAsync(params)
+      console.log('[Prospecting Page] Resultado recebido:', result)
+      
+      if (!result || result.total === 0) {
+        toast.warning('Nenhum resultado encontrado. Verifique os parâmetros de busca.')
+      } else {
+        toast.success(`Encontrados ${result.total} resultado(s)`)
+      }
+      
+      setSearchResults(result)
+      setActiveTab('results')
+    } catch (error) {
+      console.error('[Prospecting Page] Erro na busca:', error)
+      // O erro já é tratado no hook, mas vamos garantir que o usuário veja
+    }
   }
 
   const handleSaveContacts = async (contacts: ProspectingResult[]) => {

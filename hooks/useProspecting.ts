@@ -80,7 +80,7 @@ export function useDeleteProspectingConfig() {
  */
 export function useProspectingSearch() {
   return useMutation({
-    mutationFn: (params: {
+    mutationFn: async (params: {
       configId?: string
       nicho?: string
       localizacoes?: string[]
@@ -90,8 +90,19 @@ export function useProspectingSearch() {
       localizacao?: string
       variacao?: string
       pagina?: number
-    }) => prospectingService.search(params),
+    }) => {
+      console.log('[useProspectingSearch] Buscando com params:', params)
+      try {
+        const result = await prospectingService.search(params)
+        console.log('[useProspectingSearch] Resultado recebido:', result)
+        return result
+      } catch (error) {
+        console.error('[useProspectingSearch] Erro:', error)
+        throw error
+      }
+    },
     onError: (error: Error) => {
+      console.error('[useProspectingSearch] Erro no hook:', error)
       toast.error(error.message || 'Erro ao buscar dados')
     },
   })
