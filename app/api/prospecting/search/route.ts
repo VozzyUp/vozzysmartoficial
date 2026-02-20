@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[Prospecting Search] Dados recebidos do HasData:', {
       hasLocalResults: !!mapsData.localResults,
-      localResultsCount: mapsData.localResults?.length || 0,
+      localResultsCount: Array.isArray(mapsData.localResults) ? mapsData.localResults.length : mapsData.localResults ? 1 : 0,
       hasPlaceResults: !!mapsData.placeResults,
     })
 
