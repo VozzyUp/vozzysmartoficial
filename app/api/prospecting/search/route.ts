@@ -218,27 +218,29 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Converter para formato interno
-    const processedResults = rawResults.map((item, idx) => {
-      const telefoneRaw = item.phone || ''
-      const telefoneLimpo = telefoneRaw.replace(/\D/g, '')
-      
-      console.log(`[Prospecting Search] Item ${idx}:`, {
-        empresa: item.title,
-        telefoneRaw,
-        telefoneLimpo,
-        temTelefone: !!telefoneLimpo,
-      })
+    // Converter para formato interno (suporta camelCase e snake_case da API HasData)
+    if (rawResults.length > 0) {
+      console.log('[Prospecting Search] Estrutura do primeiro item:', rawResults[0])
+    }
+    const processedResults = rawResults.map((item) => {
+      const it = item as Record<string, unknown>
+      const title = (it.title ?? it.name ?? it.business_name ?? '') as string
+      const telefoneRaw = ((it.phone ?? it.telephone ?? '') as string).replace(/\D/g, '')
+      const address = (it.address ?? it.full_address ?? '') as string
+      const website = (it.website ?? it.url ?? '') as string
+      const type = (it.type ?? it.category ?? '') as string
+      const rating = (it.rating ?? it.stars) as number | undefined
+      const reviews = (it.reviews ?? it.review_count ?? it.reviewCount) as number | undefined
 
       return {
-        empresa: (item.title || '').trim(),
-        telefone: telefoneLimpo,
-        endereco: (item.address || '').trim(),
-        website: (item.website || '').trim(),
-        categoria: (item.type || '').trim(),
-        avaliacao: item.rating || null,
-        total_avaliacoes: item.reviews || null,
-        email: null as string | null, // Email não vem do Google Maps
+        empresa: String(title || '').trim(),
+        telefone: telefoneRaw,
+        endereco: String(address || '').trim(),
+        website: String(website || '').trim(),
+        categoria: String(type || '').trim(),
+        avaliacao: rating ?? null,
+        total_avaliacoes: reviews ?? null,
+        email: null as string | null,
       }
     })
 

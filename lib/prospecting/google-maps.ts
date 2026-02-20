@@ -13,20 +13,27 @@ export interface GoogleMapsSearchParams {
 
 export interface GoogleMapsResult {
   title?: string
+  name?: string
+  business_name?: string
   phone?: string
+  telephone?: string
   address?: string
   website?: string
   type?: string
+  category?: string
   rating?: number
   reviews?: number
+  review_count?: number
 }
 
 export interface GoogleMapsResponse {
   localResults?: GoogleMapsResult[] | GoogleMapsResult
+  local_results?: GoogleMapsResult[] | GoogleMapsResult // snake_case (formato HasData)
   placeResults?: GoogleMapsResult
-  results?: GoogleMapsResult[] // Algumas APIs retornam em "results"
-  data?: GoogleMapsResult[] // Outras retornam em "data"
-  [key: string]: any // Permitir outros campos
+  place_results?: GoogleMapsResult // snake_case
+  results?: GoogleMapsResult[]
+  data?: GoogleMapsResult[]
+  [key: string]: any
 }
 
 export interface Coordinates {
@@ -83,9 +90,9 @@ export async function getCoordinates(location: string): Promise<Coordinates | nu
 
 /**
  * Formata coordenadas para o formato esperado pela HasData API
- * Formato: @lat,lon,zoomz
+ * Formato: @lat,lon,zoomz (ex: @40.7455096,-74.0083012,14z)
  */
-export function formatCoordinatesForHasData(coords: Coordinates, zoom: number = 12): string {
+export function formatCoordinatesForHasData(coords: Coordinates, zoom: number = 14): string {
   return `@${coords.lat},${coords.lon},${zoom}z`
 }
 
@@ -99,6 +106,7 @@ export async function fetchGoogleMapsData(
   const { query, ll, start = 0 } = params
 
   // Construir URL com query parameters (GET request)
+  // Documentação: https://docs.hasdata.com/apis/google-maps/search
   const url = new URL('https://api.hasdata.com/scrape/google-maps/search')
   url.searchParams.set('q', query)
   if (ll) {
@@ -107,6 +115,9 @@ export async function fetchGoogleMapsData(
   if (start > 0) {
     url.searchParams.set('start', start.toString())
   }
+  // gl e hl para resultados no Brasil (country=BR, language=pt)
+  url.searchParams.set('gl', 'br')
+  url.searchParams.set('hl', 'pt')
 
   console.log('[fetchGoogleMapsData] Parâmetros:', {
     query,
@@ -119,17 +130,15 @@ export async function fetchGoogleMapsData(
   console.log('[fetchGoogleMapsData] URL completa:', url.toString())
   console.log('[fetchGoogleMapsData] Headers:', {
     'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING',
-    'Content-Type': 'application/json',
   })
 
-  // GET request - sem body
+  // GET request - HasData usa x-api-key (sem Content-Type para GET)
   const response = await fetch(url.toString(), {
-    method: 'GET', // Explicitamente GET
+    method: 'GET',
     headers: {
       'x-api-key': apiKey,
-      'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
-    // SEM body - GET não deve ter body
   })
 
   if (!response.ok) {
@@ -174,40 +183,30 @@ export function processProspectingResults(data: GoogleMapsResponse): GoogleMapsR
     allKeys: Object.keys(data),
   })
 
-  // Processar localResults (array de resultados)
-  if (data.localResults && Array.isArray(data.localResults)) {
-    console.log('[processProspectingResults] Adicionando', data.localResults.length, 'resultados de localResults')
-    results.push(...data.localResults)
-  } else if (data.localResults && typeof data.localResults === 'object') {
-    // Pode ser um objeto único ao invés de array
-    console.log('[processProspectingResults] localResults é objeto único, convertendo')
-    results.push(data.localResults as GoogleMapsResult)
+  const dataAny = data as Record<string, unknown>
+
+  // Normaliza array de resultados (suporta camelCase e snake_case)
+  const addFromField = (field: string, arr: unknown) => {
+    if (Array.isArray(arr)) {
+      console.log(`[processProspectingResults] Adicionando ${arr.length} resultados de "${field}"`)
+      results.push(...(arr as GoogleMapsResult[]))
+    } else if (arr && typeof arr === 'object' && !Array.isArray(arr)) {
+      console.log(`[processProspectingResults] "${field}" é objeto único, convertendo`)
+      results.push(arr as GoogleMapsResult)
+    }
   }
 
-  // Processar placeResults (resultado único)
-  if (data.placeResults) {
-    console.log('[processProspectingResults] Adicionando placeResults')
-    results.push(data.placeResults)
-  }
+  addFromField('localResults', data.localResults)
+  addFromField('local_results', data.local_results)
+  addFromField('placeResults', data.placeResults)
+  addFromField('place_results', data.place_results)
+  addFromField('results', dataAny.results)
+  addFromField('data', dataAny.data)
 
-  // Verificar se há outros campos que podem conter resultados
-  const dataAny = data as any
-  
-  // Verificar campo "results" (formato alternativo)
-  if (dataAny.results && Array.isArray(dataAny.results)) {
-    console.log('[processProspectingResults] Encontrado campo "results" com', dataAny.results.length, 'itens')
-    results.push(...dataAny.results)
-  }
-  
-  // Verificar campo "data" (formato alternativo)
-  if (dataAny.data && Array.isArray(dataAny.data)) {
-    console.log('[processProspectingResults] Encontrado campo "data" com', dataAny.data.length, 'itens')
-    results.push(...dataAny.data)
-  }
-  
-  // Verificar se há um campo com array de objetos que parecem resultados
+  // Verificar outros campos com array de resultados
+  const knownFields = ['localResults', 'local_results', 'placeResults', 'place_results', 'results', 'data']
   for (const key of Object.keys(dataAny)) {
-    if (key !== 'localResults' && key !== 'placeResults' && key !== 'results' && key !== 'data') {
+    if (!knownFields.includes(key)) {
       const value = dataAny[key]
       if (Array.isArray(value) && value.length > 0) {
         // Verificar se parece ser um array de resultados (tem propriedades como title, phone, etc)
