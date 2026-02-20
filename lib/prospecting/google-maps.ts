@@ -98,6 +98,7 @@ export async function fetchGoogleMapsData(
 ): Promise<GoogleMapsResponse> {
   const { query, ll, start = 0 } = params
 
+  // Construir URL com query parameters (GET request)
   const url = new URL('https://api.hasdata.com/scrape/google-maps/search')
   url.searchParams.set('q', query)
   if (ll) {
@@ -114,14 +115,21 @@ export async function fetchGoogleMapsData(
     queryEncoded: encodeURIComponent(query),
     llFormatted: ll,
   })
+  console.log('[fetchGoogleMapsData] Método: GET')
   console.log('[fetchGoogleMapsData] URL completa:', url.toString())
-  console.log('[fetchGoogleMapsData] Headers:', { 'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING' })
+  console.log('[fetchGoogleMapsData] Headers:', {
+    'x-api-key': apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING',
+    'Content-Type': 'application/json',
+  })
 
+  // GET request - sem body
   const response = await fetch(url.toString(), {
+    method: 'GET', // Explicitamente GET
     headers: {
       'x-api-key': apiKey,
       'Content-Type': 'application/json',
     },
+    // SEM body - GET não deve ter body
   })
 
   if (!response.ok) {
