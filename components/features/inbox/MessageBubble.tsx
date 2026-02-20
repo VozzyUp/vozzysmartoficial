@@ -334,9 +334,11 @@ function MediaContent({
   message: InboxMessage
   borderRadius: string
 }) {
-  const { id, message_type, media_url, content } = message
+  const { id, message_type, media_url, payload, content } = message
   const [imgError, setImgError] = useState(false)
-  const proxyUrl = media_url ? getMediaProxyUrl(id) : null
+  const mediaId = (payload as { media_id?: string } | null)?.media_id
+  const hasMedia = !!media_url || !!mediaId
+  const proxyUrl = hasMedia ? getMediaProxyUrl(id) : null
 
   const mt = message_type
   if (mt !== 'image' && mt !== 'video' && mt !== 'audio' && mt !== 'document')

@@ -208,7 +208,7 @@ export async function sendMessage(
     }
   }
 
-  // Persist the message
+  // Persist the message (store media_id in payload for outbound preview)
   const message = await createMessage({
     conversation_id: conversationId,
     direction: 'outbound',
@@ -217,6 +217,10 @@ export async function sendMessage(
     media_url: null,
     whatsapp_message_id: whatsappResult.messageId ?? null,
     delivery_status: whatsappResult.error ? 'failed' : 'pending',
+    payload:
+      media_id && (message_type === 'image' || message_type === 'video' || message_type === 'audio' || message_type === 'document')
+        ? { media_id }
+        : undefined,
   })
 
   // Update delivery status on success (pending -> sent)

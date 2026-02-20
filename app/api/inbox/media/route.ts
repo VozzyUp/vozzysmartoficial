@@ -29,7 +29,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 })
     }
 
-    const mediaUrl = message.media_url
+    let mediaUrl = message.media_url
+    if (!mediaUrl || typeof mediaUrl !== 'string') {
+      // Fallback: resolve media_id from payload (outbound messages)
+      const mediaId = (message.payload as { media_id?: string } | null)?.media_id
+      if (mediaId && typeof mediaId === 'string') {
+        const credentials = await getWhatsAppCredentials()
+        if (credentials?.accessToken) {
+          try {
+            const res = await fetch(
+              `https://graph.facebook.com/v24.0/${encodeURIComponent(mediaId)}`,
+              { headers: { Authorization: `Bearer ${credentials.accessToken}` } }
+            )
+            if (res.ok) {
+              const json = (await res.json()) as { url?: string }
+              if (json?.url && typeof json.url === 'string') {
+                mediaUrl = json.url
+              }
+            }
+          } catch {
+            // fall through to 404
+          }
+        }
+      }
+    }
+
     if (!mediaUrl || typeof mediaUrl !== 'string') {
       return NextResponse.json(
         { error: 'Message has no media' },
