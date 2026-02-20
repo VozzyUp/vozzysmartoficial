@@ -28,11 +28,12 @@ export interface GoogleMapsResult {
 
 export interface GoogleMapsResponse {
   localResults?: GoogleMapsResult[] | GoogleMapsResult
-  local_results?: GoogleMapsResult[] | GoogleMapsResult // snake_case (formato HasData)
+  local_results?: GoogleMapsResult[] | GoogleMapsResult
   placeResults?: GoogleMapsResult
-  place_results?: GoogleMapsResult // snake_case
+  place_results?: GoogleMapsResult
   results?: GoogleMapsResult[]
   data?: GoogleMapsResult[]
+  _fetchDebug?: { url: string; keys: string[]; firstItem?: unknown }
   [key: string]: any
 }
 
@@ -91,8 +92,9 @@ export async function getCoordinates(location: string): Promise<Coordinates | nu
 /**
  * Formata coordenadas para o formato esperado pela HasData API
  * Formato: @lat,lon,zoomz (ex: @40.7455096,-74.0083012,14z)
+ * Zoom 11 = área maior (cidade), zoom 14 = área menor (bairro)
  */
-export function formatCoordinatesForHasData(coords: Coordinates, zoom: number = 14): string {
+export function formatCoordinatesForHasData(coords: Coordinates, zoom: number = 11): string {
   return `@${coords.lat},${coords.lon},${zoom}z`
 }
 
@@ -148,25 +150,33 @@ export async function fetchGoogleMapsData(
   }
 
   const data = await response.json()
-  console.log('[fetchGoogleMapsData] Resposta recebida (raw):', JSON.stringify(data, null, 2))
+  const keys = Object.keys(data)
   console.log('[fetchGoogleMapsData] Resposta recebida (resumo):', {
+    keys,
     hasLocalResults: !!data.localResults,
-    localResultsType: typeof data.localResults,
-    localResultsLength: Array.isArray(data.localResults) ? data.localResults.length : 'N/A',
-    hasPlaceResults: !!data.placeResults,
-    keys: Object.keys(data),
+    hasLocal_results: !!data.local_results,
+    localResultsLength: Array.isArray(data.localResults) ? data.localResults.length : 0,
+    local_resultsLength: Array.isArray(data.local_results) ? data.local_results.length : 0,
     statusCode: response.status,
   })
-  
-  // Verificar se há estrutura diferente na resposta
-  if (data.results && Array.isArray(data.results)) {
-    console.log('[fetchGoogleMapsData] Encontrado campo "results" com', data.results.length, 'itens')
+
+  // Anexar debug para diagnóstico (quando não há resultados)
+  const dataWithDebug = data as GoogleMapsResponse & { _fetchDebug?: { url: string; keys: string[]; firstItem?: unknown } }
+  const hasAnyResults = Array.isArray(data.localResults) && data.localResults.length > 0
+    || Array.isArray(data.local_results) && data.local_results.length > 0
+    || Array.isArray(data.results) && data.results.length > 0
+    || Array.isArray(data.data) && data.data.length > 0
+  if (!hasAnyResults) {
+    const first = (data.local_results?.[0] ?? data.localResults?.[0] ?? data.results?.[0] ?? data.data?.[0])
+    dataWithDebug._fetchDebug = {
+      url: url.toString(),
+      keys,
+      firstItem: first ?? null,
+    }
+    console.log('[fetchGoogleMapsData] DEBUG (sem resultados):', JSON.stringify(dataWithDebug._fetchDebug, null, 2))
   }
-  if (data.data && Array.isArray(data.data)) {
-    console.log('[fetchGoogleMapsData] Encontrado campo "data" com', data.data.length, 'itens')
-  }
-  
-  return data as GoogleMapsResponse
+
+  return dataWithDebug as GoogleMapsResponse
 }
 
 /**

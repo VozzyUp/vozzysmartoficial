@@ -13,6 +13,14 @@ interface ProspectingResultsProps {
   duplicados: number
   onSave: (contacts: ProspectingResult[]) => Promise<void>
   isSaving?: boolean
+  /** Debug retornado pela API quando não há resultados (para diagnóstico) */
+  debug?: {
+    urlChamada: string
+    camposResposta: string[]
+    primeiroItem?: unknown
+    queryUsada: string
+    coordenadas: string
+  }
 }
 
 export const ProspectingResults: React.FC<ProspectingResultsProps> = ({
@@ -22,6 +30,7 @@ export const ProspectingResults: React.FC<ProspectingResultsProps> = ({
   duplicados,
   onSave,
   isSaving = false,
+  debug,
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
@@ -66,16 +75,23 @@ export const ProspectingResults: React.FC<ProspectingResultsProps> = ({
   if (results.length === 0) {
     return (
       <Container variant="glass" padding="lg" className="border-[var(--ds-border-default)]">
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-center text-[var(--ds-text-muted)]">
             Nenhum resultado encontrado.
           </p>
           <p className="text-center text-xs text-[var(--ds-text-muted)]">
             Possíveis causas: nenhum resultado retornado pela API, telefones inválidos ou apenas números fixos (WhatsApp requer celulares).
           </p>
-          <p className="text-center text-xs text-[var(--ds-text-muted)] mt-2">
-            Verifique os logs do console do navegador (F12) para mais detalhes.
-          </p>
+          {debug && (
+            <details className="mt-4 p-4 bg-[var(--ds-bg-hover)] rounded-lg border border-[var(--ds-border-default)]">
+              <summary className="cursor-pointer text-sm font-medium text-[var(--ds-text-secondary)]">
+                Diagnóstico (URL e estrutura da resposta HasData)
+              </summary>
+              <pre className="mt-3 text-xs text-[var(--ds-text-muted)] overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(debug, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
       </Container>
     )

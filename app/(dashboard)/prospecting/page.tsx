@@ -93,6 +93,13 @@ export default function ProspectingPage() {
     total: number
     novos: number
     duplicados: number
+    debug?: {
+      urlChamada: string
+      camposResposta: string[]
+      primeiroItem?: unknown
+      queryUsada: string
+      coordenadas: string
+    }
   } | null>(null)
 
   const { data: configs, isLoading: isLoadingConfigs } = useProspectingConfigs()
@@ -364,6 +371,7 @@ export default function ProspectingPage() {
           results={searchResults.results}
           total={searchResults.total}
           novos={searchResults.novos}
+          debug={searchResults.debug}
           duplicados={searchResults.duplicados}
           onSave={handleSaveContacts}
           isSaving={saveMutation.isPending}

@@ -129,30 +129,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Construir query seguindo o formato do exemplo:
-    // "hamburgueria Lanchonete em São Paulo em Mooca São Paulo"
-    // Ou seja: variação + nicho + " em " + localização completa
-    
+    // Construir query para HasData API:
+    // Documentação: q = termo de busca, ll = coordenadas (localização)
+    // Exemplo da doc: q=Pizza&ll=@40.74,-74.00,14z -> busca "Pizza" na área das coordenadas
+    // O ll já define onde buscar; a query deve ser o termo de negócio (nicho)
     const localizacaoParaQuery = localizacao.trim()
     
-    // Construir query: variação + nicho + " em " + localização
-    let query = ''
+    let query = config.nicho.trim()
+    // Adicionar variação apenas se não for instrução de raio (raio 5km, etc)
     if (variacao && variacao.trim()) {
       const variacaoLower = variacao.toLowerCase().trim()
-      // Ignorar variações que são instruções de localização (raio, km, etc)
       if (!variacaoLower.includes('raio') && !variacaoLower.includes('km')) {
-        query = `${variacao} ${config.nicho}`
-      } else {
-        query = config.nicho
+        query = `${variacao} ${config.nicho}`.trim()
       }
-    } else {
-      query = config.nicho
     }
-    
-    // Adicionar localização: " em " + localização completa
-    query += ` em ${localizacaoParaQuery}`
-    
-    const queryFinal = query.trim()
+    const queryFinal = query
     console.log('[Prospecting Search] Query construída:', {
       query: queryFinal,
       queryEncoded: encodeURIComponent(queryFinal),
@@ -210,11 +201,19 @@ export async function POST(request: NextRequest) {
 
     if (rawResults.length === 0) {
       console.warn('[Prospecting Search] Nenhum resultado retornado pela API HasData')
+      const debug = (mapsData as { _fetchDebug?: { url: string; keys: string[]; firstItem?: unknown } })._fetchDebug
       return NextResponse.json({
         results: [],
         total: 0,
         novos: 0,
         duplicados: 0,
+        debug: debug ? {
+          urlChamada: debug.url,
+          camposResposta: debug.keys,
+          primeiroItem: debug.firstItem,
+          queryUsada: queryFinal,
+          coordenadas: ll,
+        } : undefined,
       })
     }
 
